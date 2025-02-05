@@ -24,10 +24,9 @@ conda init powershell
 or bash-like shells (linux & macOS users):
 
 ```zsh
-conda inits
+conda init
 ```
-### 1. Create a new virtual environment and activate it 
-
+### 1. Create a new virtual environment and activate it 
 with pyenv virtualenv:
 ```bash
 	pyenv virtualenv clustering_OFF && pyenv activate clustering_OFF
@@ -36,8 +35,7 @@ or conda:
 ```bash
 	conda clustering_OFF && conda activate clustering_OFF
 ```
-
-### 2. Install required librairies 
+### 2. Install required librairies 
 
 ```bash
   	pip install -r requirements
