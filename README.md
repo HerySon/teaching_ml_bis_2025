@@ -13,6 +13,19 @@ This is the final project for my machine learning class
 
 ## Steps to start working on the project
 
+### 0. Initialize conda
+
+with powershell (for widows users) : 
+
+```zsh
+conda init powershell
+```
+
+or bash-like shells (linux & macOS users):
+
+```zsh
+conda inits
+```
 ### 1. Create a new virtual environment and activate it :
 
 with pyenv virtualenv:
@@ -32,6 +45,6 @@ or conda:
 
 While you work on the project, don't forget to update the`requirements.txt`
 
-### 3. start coding
-you can look at notebooks/project_starter.ipynb for first steps : 
+### 3. Start coding
+You can look at `notebooks/project_starter.ipynb` for your first steps : 
 - load data set 
