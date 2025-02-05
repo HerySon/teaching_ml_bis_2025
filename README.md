@@ -26,7 +26,7 @@ or bash-like shells (linux & macOS users):
 ```zsh
 conda inits
 ```
-### 1. Create a new virtual environment and activate it :
+### 1. Create a new virtual environment and activate it 
 
 with pyenv virtualenv:
 ```bash
@@ -37,7 +37,7 @@ or conda:
 	conda clustering_OFF && conda activate clustering_OFF
 ```
 
-### 2. Install required librairies :
+### 2. Install required librairies 
 
 ```bash
   	pip install -r requirements
