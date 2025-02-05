@@ -1,0 +1,17 @@
+# packaging
+pip>=9
+setuptools>=26
+wheel>=0.29
+
+# data science
+numpy
+pandas 
+scikit-learn 
+
+# Visualisation
+matplotlib
+seaborn
+plotly
+
+
+
