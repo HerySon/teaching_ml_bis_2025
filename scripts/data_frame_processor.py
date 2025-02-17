@@ -19,6 +19,8 @@ from pathlib import Path
 
 from concurrent.futures import ThreadPoolExecutor
 
+from .utils.data_utils import load_data
+
 from functools import wraps
 from termcolor import colored
 
@@ -45,7 +47,7 @@ class DataFrameProcessor:
         self.file_path = file_path
         self.category_threshold = category_threshold
         self.limit = limit
-        self.df = self._load_data()
+        self.df = load_data(file_path, limit)
         self._numeric_columns, self._ordinal_columns, self._nominal_columns = self._classify_columns()
 
     def __repr__(self) -> str:
@@ -71,10 +73,6 @@ class DataFrameProcessor:
 
     def __contains__(self, key) -> bool:
         return key in self.df
-
-    def _load_data(self) -> pd.DataFrame:
-        """Load the data from a CSV file with efficient memory usage."""
-        return pd.read_csv(self.file_path, sep='\t', low_memory=False, nrows=self.limit)
 
     def _classify_columns(self) -> tuple:
         """Classify columns into numeric, ordinal, and nominal based on unique value count."""

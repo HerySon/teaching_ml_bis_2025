@@ -23,6 +23,8 @@ import random
 import string
 import pytest
 
+from .utils.data_utils import load_data, get_numeric_columns
+
 import warnings
 
 warnings.filterwarnings("ignore", category=UserWarning, module='matplotlib')
@@ -32,16 +34,12 @@ class DataFrameSelector (object):
     @pytest.mark.parametrize("limit, path", [ (1000, "/data/en.openfoodfacts.org.products.csv") ])
     def __init__(self, limit: int, path : str) -> None:
         """Initializes the DataFrameSelector with a DataFrame."""
-        self.df = pd.read_csv(path, nrows=limit, sep='\t', on_bad_lines='skip')
+        self.df = load_data(path, limit)
 
-        self.numeric_columns = self._get_numeric_columns()
+        self.numeric_columns = get_numeric_columns(self.df)
         self.ordinal_columns = self._get_ordinal_columns()
         self.nominal_columns = self._get_nominal_columns()
         
-    def _get_numeric_columns(self) -> list:
-        """Get numeric columns in the DataFrame."""
-        return self.df.select_dtypes(include=[np.number]).columns.tolist()
-
     def _get_ordinal_columns(self) -> list:
         """Get ordinal (categorical) columns in the DataFrame."""
         ordinal_columns = [
