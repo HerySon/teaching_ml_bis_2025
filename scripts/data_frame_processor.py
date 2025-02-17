@@ -33,7 +33,7 @@ def async_executor(func) -> asyncio.coroutine:
             return await loop.run_in_executor(pool, func, *args, **kwargs)
     return wrapper
 
-class DataFrameProcessor:
+class DataFrameProcessor (object):
     @pytest.mark.parametrize("file_path, category_threshold, limit", [
         ("/data/en.openfoodfacts.org.products.csv", 10, None),
         ("/data/en.openfoodfacts.org.products.csv", 5, 1000)

@@ -4,6 +4,7 @@ import asyncio
 from .data_frame_processor import DataFrameProcessor
 from .data_frame_filter import DataFrameSelector
 from .data_cleaning import DataCleaning
+from .data_encoder import FeatureEncoder
 
 __all__ = ['DataFrameProcessor']
 
@@ -56,11 +57,32 @@ def main(
     parser.add_argument("--random_state", type=int, default=42, help="Valeur pour initialiser la graine aléatoire")
     parser.add_argument("--plot_type", type=str, default="numeric", help="Type de graphique à générer")
     parser.add_argument("--colunm_name", type=str, default="cities", help="Nom de la colonne à visualiser")
+
+    parser.add_argument('--min_freq', type=float, default=0.01, help="Fréquence minimale pour la suppression des catégories rares")
+    parser.add_argument('--n_components', type=int, default=8, help="Nombre de composants pour HashingEncoder")
+    parser.add_argument('--n_clusters', type=int, default=5, help="Nombre de clusters pour la fusion des catégories via K-means")
     
     return parser.parse_args()
 
 def get_all_columns(df) -> list:
     return df.columns.tolist()
+
+def pars_args_data_encoder(args=None) -> None:
+    parser = argparse.ArgumentParser(description="Commandes de nettoyage de données")
+
+    args = main("Bienvenue dans le DataEncoder", "Commandes de nettoyage de données", parser)
+    encoder = FeatureEncoder.from_csv(args.file_path, args.limit)
+
+    encoder.merge_categories_clustering(n_clusters=args.n_clusters)
+    # encoder.merge_rare_categories(threshold=args.min_freq)
+
+    # encoder.one_hot_encode_incremental(min_freq=args.min_freq)
+    # encoder.count_encode(min_freq=args.min_freq)
+
+    # encoder.hash_encode(n_components=args.n_components)
+    # encoder.merge_categories_clustering(n_clusters=args.n_clusters)
+
+    # encoder.save_encoded_df()
 
 def pars_args_data_cleaning(args=None) -> None:
     parser = argparse.ArgumentParser(description="Script de nettoyage de données")

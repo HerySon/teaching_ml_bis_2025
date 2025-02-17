@@ -18,11 +18,7 @@ from datetime import datetime
 from .utils.data_utils import load_data, log_action, get_numeric_columns, get_categorical_columns, get_datetime_columns
 
 class DataCleaning:
-    @pytest.mark.parametrize("df", [
-        ("/data/en.openfoodfacts.org.products.csv"),
-        ("/data/en.openfoodfacts.org.products.csv"),
-        ("/data/en.openfoodfacts.org.products.csv")
-    ])
+    @pytest.mark.parametrize("df", [ ("/data/en.openfoodfacts.org.products.csv") ])
     def __init__(self, df: pd.DataFrame) -> None:
         self.df = df.copy()
         self.log = []
