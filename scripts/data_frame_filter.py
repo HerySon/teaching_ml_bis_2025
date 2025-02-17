@@ -28,8 +28,8 @@ warnings.filterwarnings("ignore", category=UserWarning, module='matplotlib')
 warnings.filterwarnings("ignore", category=UserWarning, module='tkinter')
 
 class DataFrameSelector (object):
-    @pytest.mark.parametrize("df", [
-        ("../data/en.openfoodfacts.org.products.csv")
+    @pytest.mark.parametrize("limit, path", [
+        (1000, "/data/en.openfoodfacts.org.products.csv")
     ])
     def __init__(self, limit: int, path : str) -> None:
         """Initializes the DataFrameSelector with a DataFrame."""

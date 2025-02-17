@@ -77,7 +77,6 @@ class DataFrameProcessor:
         """Load the data from a CSV file with efficient memory usage."""
         return pd.read_csv(self.file_path, sep='\t', low_memory=False, nrows=self.limit)
 
-    @pytest.mark.parametrize("category_threshold", [5, 10, 15])
     def _classify_columns(self) -> tuple:
         """Classify columns into numeric, ordinal, and nominal based on unique value count."""
         numeric_cols = self.df.select_dtypes(include=[np.number]).columns.tolist()
@@ -88,7 +87,6 @@ class DataFrameProcessor:
 
         return numeric_cols, ordinal_cols, nominal_cols
 
-    @pytest.mark.parametrize("min_corr", [0.05, 0.1, 0.15])
     @async_executor
     def _apply_downcasting(self) -> None:
         """Apply downcasting to numeric columns to reduce memory usage."""
