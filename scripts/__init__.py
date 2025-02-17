@@ -109,4 +109,3 @@ def pars_args_data_frame_processor(args=None) -> None:
 
     processor = DataFrameProcessor(args.file_path, args.category_threshold, args.limit)
     asyncio.run(processor.process_dataframe())
-

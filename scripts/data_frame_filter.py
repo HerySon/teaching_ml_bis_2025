@@ -6,6 +6,7 @@ Primary Functions & Classes:
 
 @author: Feurking
 """
+
 import pandas as pd
 import numpy as np
 
@@ -28,9 +29,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module='matplotlib')
 warnings.filterwarnings("ignore", category=UserWarning, module='tkinter')
 
 class DataFrameSelector (object):
-    @pytest.mark.parametrize("limit, path", [
-        (1000, "/data/en.openfoodfacts.org.products.csv")
-    ])
+    @pytest.mark.parametrize("limit, path", [ (1000, "/data/en.openfoodfacts.org.products.csv") ])
     def __init__(self, limit: int, path : str) -> None:
         """Initializes the DataFrameSelector with a DataFrame."""
         self.df = pd.read_csv(path, nrows=limit, sep='\t', on_bad_lines='skip')
@@ -62,7 +61,10 @@ class DataFrameSelector (object):
         return nominal_columns
 
     def filter_columns_by_correlation(self, min_corr: float = 0.1) -> None:
-        """Filter numeric columns based on correlation threshold."""
+        """Filter numeric columns based on correlation threshold.
+        
+            @param min_corr: Minimum correlation threshold
+        """
         corr_matrix = self.df.corr(numeric_only=True)
 
         relevant_numeric_columns = [col for col in corr_matrix.columns if any(abs(corr_matrix[col]) >= min_corr)]
@@ -78,9 +80,15 @@ class DataFrameSelector (object):
         """Return a relevant subset of the DataFrame with filtered columns."""
         filtered_df = self.df[self.numeric_columns + self.ordinal_columns + self.nominal_columns]
         return filtered_df
-        
+    
+    @pytest.mark.parametrize("sample_size, random_state, stratify_by", [ (0.1, 42, None) ])
     def get_representative_sample(self, sample_size: float = 0.1, random_state: int = 42, stratify_by: str = None) -> pd.DataFrame:
-        """Get a representative sample of the DataFrame with imputed missing values."""
+        """Get a representative sample of the DataFrame with imputed missing values.
+
+            @param sample_size: Fraction of the DataFrame to sample
+            @param random_state: Random seed for reproducibility
+            @param stratify_by: Column to stratify the sample by
+        """
         if stratify_by:
             _, sample_df = train_test_split(self.df, test_size=sample_size, random_state=random_state, stratify=self.df[stratify_by])
         else:
@@ -108,11 +116,10 @@ class DataFrameSelector (object):
         """
         Save plot as a PNG file.
         
-        Parameters:
-            - col: the column to plot.
-            - plot_type: either 'numeric' or 'categorical' to specify plot type.
-            - sample_df: optional DataFrame for comparison (for 'Sample' plots).
-            - filename: the name of the file to save the plot as.
+        @param col: Column to plot
+        @param plot_type: Type of plot (numeric or categorical)
+        @param sample_df: Sample DataFrame to plot
+        @param filename: Name of the file by default 'plot'
         """
         randomize_name = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
 

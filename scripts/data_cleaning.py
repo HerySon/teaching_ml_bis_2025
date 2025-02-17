@@ -16,10 +16,10 @@ import pytest
 from datetime import datetime
 
 class DataCleaning:
-    @pytest.mark.parametrize("file_path, limit", [
-        ("/data/en.openfoodfacts.org.products.csv", 1000),
-        ("/data/en.openfoodfacts.org.products.csv", 500),
-        ("/data/en.openfoodfacts.org.products.csv", 200),
+    @pytest.mark.parametrize("df", [
+        ("/data/en.openfoodfacts.org.products.csv"),
+        ("/data/en.openfoodfacts.org.products.csv"),
+        ("/data/en.openfoodfacts.org.products.csv"),
     ])
     def __init__(self, df: pd.DataFrame) -> None:
         self.df = df.copy()
@@ -44,7 +44,10 @@ class DataCleaning:
         return len(self.df)
 
     def log_action(action: str) -> callable:
-        """Decorator to log actions"""
+        """Decorator to log actions
+
+            @param action: The action to log
+        """
         def decorator(func):
             def wrapper(self, *args, **kwargs):
                 start_time = datetime.now()
@@ -57,8 +60,14 @@ class DataCleaning:
             return wrapper
         return decorator
 
+    @pytest.mark.parametrize("file_path, limit", [ ("/data/en.openfoodfacts.org.products.csv", 1000) ])
     @classmethod
     def from_csv(cls, file_path : str, limit : int) -> 'DataCleaning':
+        """Create a DataCleaning object from a CSV file.
+        
+            @param file_path: Path to the CSV file
+            @param limit: Maximum number of rows to load
+        """
         df = pd.read_csv(file_path, sep='\t', on_bad_lines='skip', nrows=limit, low_memory=False)
         return cls(df)
 

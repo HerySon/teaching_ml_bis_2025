@@ -34,8 +34,7 @@ def async_executor(func) -> asyncio.coroutine:
 class DataFrameProcessor:
     @pytest.mark.parametrize("file_path, category_threshold, limit", [
         ("../data/en.openfoodfacts.org.products.csv", 10, None),
-        ("../data/en.openfoodfacts.org.products.csv", 5, 1000),
-        ("../data/en.openfoodfacts.org.products.csv", 20, 500),
+        ("../data/en.openfoodfacts.org.products.csv", 5, 1000)
     ])
     def __init__(self, file_path: str, category_threshold: int = 10, limit: int = None) -> None:
         """Initialize the DataFrameProcessor with a CSV file path, category threshold, and row limit.
@@ -95,6 +94,7 @@ class DataFrameProcessor:
     async def process_dataframe(self) -> pd.DataFrame:
         """Process the dataframe by applying downcasting and printing column categories."""
         await self._apply_downcasting()
+
         print(colored("\n 📚 Colonnes numériques:", 'blue'), self.numeric_columns)
         print(colored("📚 Colonnes catégorielles ordinales:", 'green'), self.ordinal_columns)
         print(colored("📚 Colonnes catégorielles nominales:", 'yellow'), self.nominal_columns)
@@ -135,7 +135,10 @@ class DataFrameProcessor:
         self._nominal_columns = value
 
     def filter_relevant_columns(self, min_corr=0.05) -> None:
-        """Filter columns based on correlation threshold for numeric variables."""
+        """Filter columns based on correlation threshold for numeric variables.
+        
+            @param min_corr: Minimum correlation threshold
+        """
         corr_matrix = self.df.corr(numeric_only=True)
         relevant_numeric = [col for col in corr_matrix.columns if any(abs(corr_matrix[col]) >= min_corr)]
         print("🔍 Colonnes numériques pertinentes (corr ≥", min_corr, "):", relevant_numeric)
