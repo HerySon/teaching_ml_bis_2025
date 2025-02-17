@@ -21,7 +21,7 @@ class DataCleaning:
     @pytest.mark.parametrize("df", [
         ("/data/en.openfoodfacts.org.products.csv"),
         ("/data/en.openfoodfacts.org.products.csv"),
-        ("/data/en.openfoodfacts.org.products.csv"),
+        ("/data/en.openfoodfacts.org.products.csv")
     ])
     def __init__(self, df: pd.DataFrame) -> None:
         self.df = df.copy()
@@ -45,7 +45,6 @@ class DataCleaning:
     def __len__(self) -> int:
         return len(self.df)
 
-    @pytest.mark.parametrize("file_path, limit", [ ("/data/en.openfoodfacts.org.products.csv", 1000) ])
     @classmethod
     def from_csv(cls, file_path : str, limit : int) -> 'DataCleaning':
         """Create a DataCleaning object from a CSV file.
@@ -78,8 +77,11 @@ class DataCleaning:
 
     @log_action("🔍 Extraction des motifs particuliers")
     def extract_pattern(self, col_name: str, pattern: str, new_col: str) -> None:
+        """Extract patterns from the specified column using regex."""
         if col_name in self.df.columns:
-            self.df[new_col] = self.df[col_name].str.extract(pattern, expand=False)
+            self.df[new_col] = self.df[col_name].apply(
+                lambda x: re.search(pattern, x).group(0) if pd.notnull(x) and re.search(pattern, x) else None
+            )
 
     @log_action("❎ Correction des erreurs")
     def fix_errors(self, col_name: str, correction_func) -> None:
@@ -93,7 +95,7 @@ class DataCleaning:
         
     @log_action("⚠️ Détection et suppression des outliers")
     def remove_outliers(self, method='IQR', factor=1.5) -> None:
-        for col in get_numeric_columns():
+        for col in get_numeric_columns(self.df):
             if method == 'IQR':
                 Q1, Q3 = self.df[col].quantile([0.25, 0.75])
                 IQR = Q3 - Q1
@@ -101,7 +103,7 @@ class DataCleaning:
 
     @log_action("🧹 Nettoyage des espaces blancs")
     def clean_whitespace(self) -> None:
-        for col in get_categorical_columns():
+        for col in get_categorical_columns(self.df):
             self.df[col] = self.df[col].str.strip()
             
     @log_action("🗂️ Normalisation des colonnes de date")

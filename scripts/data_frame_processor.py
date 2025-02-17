@@ -35,8 +35,8 @@ def async_executor(func) -> asyncio.coroutine:
 
 class DataFrameProcessor:
     @pytest.mark.parametrize("file_path, category_threshold, limit", [
-        ("../data/en.openfoodfacts.org.products.csv", 10, None),
-        ("../data/en.openfoodfacts.org.products.csv", 5, 1000)
+        ("/data/en.openfoodfacts.org.products.csv", 10, None),
+        ("/data/en.openfoodfacts.org.products.csv", 5, 1000)
     ])
     def __init__(self, file_path: str, category_threshold: int = 10, limit: int = None) -> None:
         """Initialize the DataFrameProcessor with a CSV file path, category threshold, and row limit.

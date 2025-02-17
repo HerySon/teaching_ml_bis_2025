@@ -7,25 +7,27 @@ Provides reusable functions for column detection and action logging.
 
 import pandas as pd
 import numpy as np
+
 from datetime import datetime
 from functools import wraps
 
+from typing import Callable
 
-def log_action(action: str) -> callable:
+def log_action(action: str) -> Callable:
     """Decorator to log actions performed on the data.
 
         @param action: The action to log
     """
     def decorator(func):
         @wraps(func)
-        def wrapper(self, *args, **kwargs):
+        def wrapper(*args, **kwargs):
             start_time = datetime.now()
             print(f"[INFO {start_time}] - {action}")
-            result = func(self, *args, **kwargs)
+            result = func(*args, **kwargs)
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
-            if hasattr(self, 'log'):
-                self.log.append({"action": action, "duration": duration, "timestamp": start_time})
+            if hasattr(wrapper, 'log'):
+                wrapper.log.append({"action": action, "duration": duration, "timestamp": start_time})
             return result
         return wrapper
     return decorator
@@ -41,7 +43,6 @@ def get_numeric_columns(df: pd.DataFrame) -> list:
 def get_categorical_columns(df: pd.DataFrame) -> list:
     """Get categorical columns in the DataFrame."""
     return df.select_dtypes(include=['object', 'category']).columns.tolist()
-
 
 def get_datetime_columns(df: pd.DataFrame) -> list:
     """Get datetime columns in the DataFrame."""
