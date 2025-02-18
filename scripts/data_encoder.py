@@ -32,17 +32,39 @@ import matplotlib.pyplot as plt
 from .utils.data_utils import load_data, log_action, get_categorical_columns
 import seaborn as sns
 
-class FeatureEncoder(object):
-
-    @pytest.mark.parametrize("df", [ ("/data/en.openfoodfacts.org.products.csv") ])
+class DataEncoder:
     def __init__(self, df: pd.DataFrame) -> None:
         self.df = df.copy()
         self.log = []
 
     @classmethod
-    def from_csv(cls, file_path: str, limit: int) -> 'FeatureEncoder':
+    def from_csv(cls, file_path: str, limit: int) -> 'DataEncoder':
         df = load_data(file_path, limit)
         return cls(df)
+
+    @log_action("📊 Save Encoded Data")
+    def save_encoded_df(self, output_path: str = "encoded_df.csv") -> None:
+        """Saves the encoded DataFrame to the specified file."""
+        self.df.to_csv(output_path, index=False)
+        print(f"Encoded DataFrame saved to {output_path}")
+
+    def summarize(self) -> dict:
+        """Summarizes the DataFrame, including shape, categorical columns, and log."""
+        return {
+            'shape': self.df.shape,
+            'categorical_columns': get_categorical_columns(self.df),
+            'log': self.log
+        }
+
+    def display_info(self) -> None:
+        """Displays information about the DataFrame."""
+        print(self.df.info())
+
+class FeatureEncoder(DataEncoder):
+
+    @pytest.mark.parametrize("df", [ ("/data/en.openfoodfacts.org.products.csv") ])
+    def __init__(self, df: pd.DataFrame) -> None:
+        super().__init__(df)
 
     @log_action("🔄 One-Hot Encoding with optimization")
     def one_hot_encode_incremental(self, output_dir: str = "encoded_features", min_freq: float = 0.01) -> None:
@@ -123,21 +145,3 @@ class FeatureEncoder(object):
 
         plt.title(f'Clusters for {feature_column}')
         plt.show()
-
-    @log_action("📊 Save Encoded Data")
-    def save_encoded_df(self, output_path: str = "encoded_df.csv") -> None:
-        """Saves the encoded DataFrame to the specified file."""
-        self.df.to_csv(output_path, index=False)
-        print(f"Encoded DataFrame saved to {output_path}")
-
-    def summarize(self) -> dict:
-        """Summarizes the DataFrame, including shape, categorical columns, and log."""
-        return {
-            'shape': self.df.shape,
-            'categorical_columns': get_categorical_columns(self.df),
-            'log': self.log
-        }
-
-    def display_info(self) -> None:
-        """Displays information about the DataFrame."""
-        print(self.df.info())

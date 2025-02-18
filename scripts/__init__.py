@@ -3,7 +3,7 @@ import asyncio
 
 from .data_frame_processor import DataFrameProcessor
 from .data_frame_filter import DataFrameSelector
-from .data_cleaning import DataCleaning
+from .data_cleaning import FeatureCleaning
 from .data_encoder import FeatureEncoder
 
 __all__ = ['DataFrameProcessor']
@@ -88,7 +88,7 @@ def pars_args_data_cleaning(args=None) -> None:
     parser = argparse.ArgumentParser(description="Script de nettoyage de données")
     args = main("Bienvenue dans le DataCleaner", "Commandes de nettoyage de données", parser)
 
-    cleaner = DataCleaning.from_csv(args.file_path, args.limit)
+    cleaner = FeatureCleaning.from_csv(args.file_path, args.limit)
 
     cleaner.drop_uninformative_columns()
     cleaner.drop_irrelevant_columns(args.irrelevant_cols)

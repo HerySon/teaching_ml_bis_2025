@@ -17,6 +17,10 @@ from datetime import datetime
 
 from .utils.data_utils import load_data, log_action, get_numeric_columns, get_categorical_columns, get_datetime_columns
 
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
+
 class DataCleaning:
     @pytest.mark.parametrize("df", [ ("/data/en.openfoodfacts.org.products.csv") ])
     def __init__(self, df: pd.DataFrame) -> None:
@@ -69,7 +73,7 @@ class DataCleaning:
 
         for col in self.df.columns[self.df.isnull().any()]:
             if col not in high_missing_cols:
-                self.df[col].fillna(strategies.get(col, self.df[col].mode()[0] if self.df[col].dtype == 'object' else self.df[col].mean()), inplace=True)
+                self.df[col] = self.df[col].fillna(strategies.get(col, self.df[col].mode()[0] if self.df[col].dtype == 'object' else self.df[col].mean()))
 
     @log_action("🔍 Extraction des motifs particuliers")
     def extract_pattern(self, col_name: str, pattern: str, new_col: str) -> None:
@@ -128,3 +132,32 @@ class DataCleaning:
 
     def to_excel(self, path: str, sheet_name='Sheet1') -> None:
         self.df.to_excel(path, sheet_name=sheet_name, index=False)
+
+class FeatureCleaning (DataCleaning):
+    __init__ = DataCleaning.__init__
+
+    @log_action("🔄 Encodage des variables catégorielles")
+    def encode_categorical(self, encoding_strategy='onehot') -> None:
+        if encoding_strategy == 'onehot':
+            self.df = pd.get_dummies(self.df, columns=get_categorical_columns(self.df))
+        elif encoding_strategy == 'label':
+            le = LabelEncoder()
+            for col in get_categorical_columns(self.df):
+                self.df[col] = le.fit_transform(self.df[col])
+
+    @log_action("🔢 Normalisation des colonnes numériques")
+    def normalize_numeric_columns(self, method='minmax') -> None:
+        if method == 'minmax':
+            scaler = MinMaxScaler()
+        elif method == 'standard':
+            scaler = StandardScaler()
+        self.df[get_numeric_columns(self.df)] = scaler.fit_transform(self.df[get_numeric_columns(self.df)])
+
+    @log_action("🔄 Transformation des colonnes de date en features temporelles")
+    def transform_date_columns(self) -> None:
+        for col in get_datetime_columns(self.df):
+            self.df[col] = pd.to_datetime(self.df[col], errors='coerce')
+            self.df[f'{col}_year'] = self.df[col].dt.year
+            self.df[f'{col}_month'] = self.df[col].dt.month
+            self.df[f'{col}_day'] = self.df[col].dt.day
+            self.df.drop(columns=[col], inplace=True)
