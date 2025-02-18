@@ -19,7 +19,7 @@ from pathlib import Path
 
 from concurrent.futures import ThreadPoolExecutor
 
-from .utils.data_utils import load_data
+from .utils.data_utils import load_data, log_action
 
 from functools import wraps
 from termcolor import colored
@@ -89,6 +89,7 @@ class DataFrameProcessor (object):
         """Apply downcasting to numeric columns to reduce memory usage."""
         self.df[self.numeric_columns] = self.df[self.numeric_columns].apply(pd.to_numeric, downcast='integer')
 
+    @log_action("📊 Processing DataFrame")
     async def process_dataframe(self) -> pd.DataFrame:
         """Process the dataframe by applying downcasting and printing column categories."""
         await self._apply_downcasting()

@@ -60,7 +60,7 @@ class DataEncoder:
         """Displays information about the DataFrame."""
         print(self.df.info())
 
-class FeatureEncoder(DataEncoder):
+class FeatureEncoder (DataEncoder):
 
     @pytest.mark.parametrize("df", [ ("/data/en.openfoodfacts.org.products.csv") ])
     def __init__(self, df: pd.DataFrame) -> None:

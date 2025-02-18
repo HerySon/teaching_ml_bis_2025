@@ -55,16 +55,16 @@ class DataCleaning:
         df = load_data(file_path, limit)
         return cls(df)
 
-    @log_action("🪪 Suppression des colonnes non informatives")
+    @log_action("🪪 Dropping uninformative columns")
     def drop_uninformative_columns(self) -> None:
         cols_to_drop = [col for col in self.df.columns if self.df[col].nunique() <= 1]
         self.df.drop(columns=cols_to_drop, inplace=True)
 
-    @log_action("🚮 Suppression des colonnes non pertinentes")
+    @log_action("🚮 Dropping irrelevant columns")
     def drop_irrelevant_columns(self, irrelevant_cols: list) -> None:
         self.df.drop(columns=[col for col in irrelevant_cols if col in self.df.columns], inplace=True)
 
-    @log_action("👊 Traitement des valeurs manquantes")
+    @log_action("👊 Handling missing values")
     def handle_missing_values(self, threshold: float = 0.5, strategies=None) -> None:
         """Handle missing values in the DataFrame using a threshold and strategies."""
         high_missing_cols = self.df.columns[self.df.isnull().mean() > threshold]
@@ -75,7 +75,7 @@ class DataCleaning:
             if col not in high_missing_cols:
                 self.df[col] = self.df[col].fillna(strategies.get(col, self.df[col].mode()[0] if self.df[col].dtype == 'object' else self.df[col].mean()))
 
-    @log_action("🔍 Extraction des motifs particuliers")
+    @log_action("🔍 Extracting specific patterns")
     def extract_pattern(self, col_name: str, pattern: str, new_col: str) -> None:
         """Extract patterns from the specified column using regex."""
         if col_name in self.df.columns:
@@ -83,15 +83,18 @@ class DataCleaning:
                 lambda x: re.search(pattern, x).group(0) if pd.notnull(x) and re.search(pattern, x) else None
             )
 
-    @log_action("❎ Correction des erreurs")
+    @log_action("❎ Correcting errors")
     def fix_errors(self, col_name: str, correction_func) -> None:
         if col_name in self.df.columns:
             self.df[col_name] = self.df[col_name].apply(correction_func)
 
-    @log_action("🔍 Extraction des motifs particuliers")
+    @log_action("🔍 Extracting specific patterns")
     def extract_pattern(self, col_name: str, pattern: str, new_col: str) -> None:
+        """Extract patterns from the specified column using regex."""
         if col_name in self.df.columns:
-            self.df[new_col] = self.df[col_name].apply(lambda x: re.search(pattern, x).group(0) if pd.notnull(x) and re.search(pattern, x) else None)
+            self.df[new_col] = self.df[col_name].apply(
+                lambda x: re.search(pattern, x).group(0) if pd.notnull(x) and re.search(pattern, x) else None
+            )
         
     @log_action("⚠️ Détection et suppression des outliers")
     def remove_outliers(self, method='IQR', factor=1.5) -> None:

@@ -11,3 +11,4 @@ en.openfoodfacts.org.products.csv
 encoded_df.csv
 
 **/encoded_features/
+**/data_scaling.py

@@ -23,7 +23,7 @@ import random
 import string
 import pytest
 
-from .utils.data_utils import load_data, get_numeric_columns
+from .utils.data_utils import load_data, get_numeric_columns, log_action
 
 import warnings
 
@@ -74,11 +74,13 @@ class DataFrameSelector (object):
         self.ordinal_columns = [col for col in self.ordinal_columns if self.df[col].nunique() >= min_categories]
         self.nominal_columns = [col for col in self.nominal_columns if self.df[col].nunique() >= min_categories]
 
+    @log_action("🔍 Get Relevant Subset")
     def get_relevant_subset(self) -> pd.DataFrame:
         """Return a relevant subset of the DataFrame with filtered columns."""
         filtered_df = self.df[self.numeric_columns + self.ordinal_columns + self.nominal_columns]
         return filtered_df
     
+    @log_action("📊 Get Representative Sample")
     @pytest.mark.parametrize("sample_size, random_state, stratify_by", [ (0.1, 42, None) ])
     def get_representative_sample(self, sample_size: float = 0.1, random_state: int = 42, stratify_by: str = None) -> pd.DataFrame:
         """Get a representative sample of the DataFrame with imputed missing values.
@@ -104,6 +106,11 @@ class DataFrameSelector (object):
 
         return sample_df_imputed
 
+    def generate_random_name(self) -> str:
+        """Generate a random name for a file."""
+        return ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+
+    @log_action("📊 Save Plot")
     @pytest.mark.parametrize("col, plot_type, sample_df, filename", [
             ('code', 'numeric', None, 'code_numeric'),
             ('code', 'categorical', None, 'code_categorical'),
@@ -119,10 +126,9 @@ class DataFrameSelector (object):
         @param sample_df: Sample DataFrame to plot
         @param filename: Name of the file by default 'plot'
         """
-        randomize_name = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
 
         os.makedirs('results/plot/', exist_ok=True)
-        filename = f'results/plot/{filename}{randomize_name}.png'
+        filename = f'results/plot/{filename}{self.generate_random_name()}.png'
 
         self.df.columns = self.df.columns.str.strip()
 
