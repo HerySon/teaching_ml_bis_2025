@@ -3,6 +3,9 @@ pip>=9
 setuptools>=26
 wheel>=0.29
 
+# code quality
+pylint
+
 # data science
 numpy
 pandas 
