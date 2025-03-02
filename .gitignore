@@ -44,3 +44,8 @@ Thumbs.db
 data/*.csv
 data/*.parquet
 models/*.pkl
+
+# Documentation
+documentation/
+*.md
+!README.md
