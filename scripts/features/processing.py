@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple, Optional
 from functools import lru_cache
+from scipy.stats import entropy
 
 def get_optimal_numeric_type(min_val: float, max_val: float, has_decimals: bool) -> np.dtype:
     """
@@ -212,4 +213,301 @@ def analyze_correlations(df: pd.DataFrame,
     return {
         'correlation_matrix': corr_matrix,
         'strong_correlations': strong_correlations
-    } 
+    }
+
+def enhance_ordinal_detection(series: pd.Series) -> bool:
+    """
+    Amélioration de la détection des variables ordinales.
+    
+    Args:
+        series: Série à analyser
+        
+    Returns:
+        bool: True si la variable est probablement ordinale
+    """
+    # Vérification si c'est déjà détecté comme ordinal
+    if detect_ordinal_nature(series):
+        return True
+    
+    # Détection des séquences numériques
+    unique_values = pd.to_numeric(series.dropna(), errors='coerce')
+    if not unique_values.isna().all():
+        sorted_values = unique_values.sort_values()
+        if all(sorted_values.diff().dropna() > 0):  # Séquence strictement croissante
+            return True
+    
+    # Détection des dates et temps
+    try:
+        pd.to_datetime(series, errors='raise')
+        return True
+    except (ValueError, TypeError):
+        pass
+    
+    # Patterns ordinaux supplémentaires
+    additional_patterns = [
+        ['très faible', 'faible', 'moyen', 'élevé', 'très élevé'],
+        ['débutant', 'intermédiaire', 'avancé', 'expert'],
+        ['jamais', 'parfois', 'souvent', 'toujours'],
+        ['nul', 'passable', 'assez bien', 'bien', 'très bien', 'excellent'],
+        ['pas du tout d\'accord', 'pas d\'accord', 'neutre', 'd\'accord', 'tout à fait d\'accord']
+    ]
+    
+    values_str = series.astype(str).str.lower()
+    for pattern in additional_patterns:
+        if all(any(p in v for p in pattern) for v in values_str):
+            return True
+    
+    return False
+
+def infer_ordinal_order(series: pd.Series) -> List[str]:
+    """
+    Détermine l'ordre naturel des catégories ordinales.
+    
+    Args:
+        series: Série à analyser
+        
+    Returns:
+        List[str]: Liste des catégories dans leur ordre naturel
+    """
+    unique_values = series.dropna().unique()
+    
+    # Essai de conversion en numérique
+    try:
+        numeric_values = pd.to_numeric(unique_values)
+        return [str(x) for x in sorted(numeric_values)]
+    except (ValueError, TypeError):
+        pass
+    
+    # Essai de conversion en dates
+    try:
+        date_values = pd.to_datetime(unique_values)
+        return [str(x) for x in sorted(date_values)]
+    except (ValueError, TypeError):
+        pass
+    
+    # Patterns ordinaux connus
+    known_patterns = {
+        'niveau': ['débutant', 'intermédiaire', 'avancé', 'expert'],
+        'accord': ['pas du tout d\'accord', 'pas d\'accord', 'neutre', 'd\'accord', 'tout à fait d\'accord'],
+        'qualité': ['mauvais', 'passable', 'moyen', 'bon', 'excellent'],
+        'fréquence': ['jamais', 'rarement', 'parfois', 'souvent', 'toujours'],
+        'intensité': ['très faible', 'faible', 'moyen', 'fort', 'très fort']
+    }
+    
+    # Recherche du pattern qui correspond le mieux
+    values_set = set(v.lower() for v in unique_values)
+    for pattern in known_patterns.values():
+        pattern_set = set(p.lower() for p in pattern)
+        if values_set.issubset(pattern_set):
+            return [v for v in pattern if v.lower() in values_set]
+    
+    # Si aucun pattern ne correspond, retour des valeurs dans l'ordre alphabétique
+    return sorted(unique_values)
+
+def optimize_categorical_memory(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
+    """
+    Optimisation de la mémoire pour les variables catégorielles.
+    
+    Args:
+        df: DataFrame à optimiser
+        
+    Returns:
+        Tuple[DataFrame, Dict]: DataFrame optimisé et informations sur l'optimisation
+    """
+    df_optimized = df.copy()
+    optimization_info = {
+        'memory_savings': {},
+        'encoding_changes': {},
+        'rare_categories': {}
+    }
+    
+    for column in df.select_dtypes(include=['object', 'category']).columns:
+        initial_memory = df[column].memory_usage(deep=True)
+        
+        # Obtenir les catégories uniques non nulles
+        unique_non_null = df[column].dropna().unique()
+        n_unique = len(unique_non_null)
+        
+        # Optimisation basée sur le nombre de catégories uniques
+        if n_unique <= 2:
+            df_optimized[column] = pd.Categorical(df[column], categories=unique_non_null)
+        elif n_unique <= 255:
+            df_optimized[column] = pd.Categorical(df[column], categories=unique_non_null)
+        else:
+            # Pour les colonnes avec beaucoup de catégories, on utilise un encodage efficace
+            df_optimized[column] = pd.Categorical(df[column])
+        
+        final_memory = df_optimized[column].memory_usage(deep=True)
+        savings = initial_memory - final_memory
+        
+        optimization_info['memory_savings'][column] = {
+            'initial_bytes': initial_memory,
+            'final_bytes': final_memory,
+            'savings_bytes': savings,
+            'savings_percent': (savings / initial_memory) * 100
+        }
+        
+        optimization_info['encoding_changes'][column] = {
+            'initial_dtype': str(df[column].dtype),
+            'final_dtype': str(df_optimized[column].dtype),
+            'n_categories': n_unique,
+            'has_null': df[column].isna().any()
+        }
+    
+    return df_optimized, optimization_info
+
+def handle_rare_categories(
+    df: pd.DataFrame,
+    threshold: float = 0.01,
+    strategy: str = 'group',
+    other_label: str = 'Other'
+) -> Tuple[pd.DataFrame, Dict]:
+    """
+    Gestion des catégories rares dans les variables catégorielles.
+    
+    Args:
+        df: DataFrame à traiter
+        threshold: Seuil minimum de fréquence pour une catégorie
+        strategy: 'group' pour regrouper, 'drop' pour supprimer
+        other_label: Étiquette pour le groupe 'Other'
+        
+    Returns:
+        Tuple[DataFrame, Dict]: DataFrame traité et informations sur les modifications
+    """
+    df_processed = df.copy()
+    info = {
+        'modified_columns': {},
+        'dropped_categories': {},
+        'grouped_categories': {}
+    }
+    
+    for column in df.select_dtypes(include=['object', 'category']).columns:
+        value_counts = df[column].value_counts(normalize=True)
+        rare_categories = value_counts[value_counts < threshold].index
+        
+        if len(rare_categories) > 0:
+            if strategy == 'group':
+                # Convertir en catégorie si ce n'est pas déjà le cas
+                if not isinstance(df_processed[column].dtype, pd.CategoricalDtype):
+                    df_processed[column] = pd.Categorical(df_processed[column])
+                
+                # Créer un dictionnaire de mapping pour les catégories
+                category_mapping = {cat: other_label if cat in rare_categories else cat 
+                                 for cat in df_processed[column].unique() if pd.notna(cat)}
+                
+                # Appliquer le mapping avec rename_categories
+                df_processed[column] = df_processed[column].cat.rename_categories(category_mapping)
+                
+                info['grouped_categories'][column] = {
+                    'n_grouped': len(rare_categories),
+                    'grouped_categories': list(rare_categories)
+                }
+            elif strategy == 'drop':
+                df_processed = df_processed[~df_processed[column].isin(rare_categories)]
+                info['dropped_categories'][column] = {
+                    'n_dropped': len(rare_categories),
+                    'dropped_categories': list(rare_categories)
+                }
+            
+            info['modified_columns'][column] = {
+                'initial_categories': df[column].nunique(),
+                'final_categories': df_processed[column].nunique(),
+                'threshold': threshold,
+                'strategy': strategy
+            }
+    
+    return df_processed, info
+
+def analyze_category_distributions(df: pd.DataFrame) -> Dict:
+    """
+    Analyse la distribution des catégories dans les variables catégorielles.
+    
+    Args:
+        df: DataFrame à analyser
+        
+    Returns:
+        Dict: Informations sur les distributions des catégories
+    """
+    distribution_info = {}
+    
+    for column in df.select_dtypes(include=['object', 'category']).columns:
+        value_counts = df[column].value_counts()
+        frequencies = value_counts / len(df)
+        
+        # Calcul de l'entropie de la distribution
+        category_entropy = entropy(frequencies)
+        
+        # Calcul du déséquilibre des classes
+        imbalance_ratio = value_counts.max() / value_counts.min()
+        
+        distribution_info[column] = {
+            'n_categories': len(value_counts),
+            'most_common': value_counts.head(5).to_dict(),
+            'least_common': value_counts.tail(5).to_dict(),
+            'entropy': category_entropy,
+            'imbalance_ratio': imbalance_ratio,
+            'missing_ratio': df[column].isna().mean(),
+            'unique_ratio': df[column].nunique() / len(df)
+        }
+    
+    return distribution_info
+
+def memory_usage_report(df: pd.DataFrame) -> Dict:
+    """
+    Génère un rapport détaillé sur l'utilisation de la mémoire du DataFrame.
+    
+    Args:
+        df: DataFrame à analyser
+        
+    Returns:
+        Dict: Rapport d'utilisation de la mémoire
+    """
+    total_memory = df.memory_usage(deep=True).sum()
+    column_memory = df.memory_usage(deep=True)
+    
+    report = {
+        'total_memory_bytes': total_memory,
+        'total_memory_mb': total_memory / 1024 / 1024,
+        'memory_by_dtype': {},
+        'column_details': {},
+        'optimization_suggestions': []
+    }
+    
+    # Analyse par type de données
+    for dtype in df.dtypes.unique():
+        cols = df.select_dtypes(include=[dtype]).columns
+        memory = df[cols].memory_usage(deep=True).sum()
+        report['memory_by_dtype'][str(dtype)] = {
+            'memory_bytes': memory,
+            'memory_mb': memory / 1024 / 1024,
+            'percentage': (memory / total_memory) * 100,
+            'n_columns': len(cols)
+        }
+    
+    # Analyse par colonne
+    for column in df.columns:
+        memory = df[column].memory_usage(deep=True)
+        dtype = df[column].dtype
+        n_unique = df[column].nunique() if dtype != 'datetime64[ns]' else None
+        
+        report['column_details'][column] = {
+            'memory_bytes': memory,
+            'memory_mb': memory / 1024 / 1024,
+            'percentage': (memory / total_memory) * 100,
+            'dtype': str(dtype),
+            'n_unique': n_unique
+        }
+        
+        # Suggestions d'optimisation
+        if dtype == 'object':
+            if n_unique and n_unique <= 255:
+                report['optimization_suggestions'].append(
+                    f"Column '{column}' could be converted to categorical"
+                )
+        elif dtype == 'int64':
+            if df[column].min() >= 0 and df[column].max() <= 255:
+                report['optimization_suggestions'].append(
+                    f"Column '{column}' could be downcasted to uint8"
+                )
+    
+    return report 
