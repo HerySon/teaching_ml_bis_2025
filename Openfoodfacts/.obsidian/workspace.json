@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Résumé 02 Mars 2025.md",
+                "file": "processus_detaille.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Résumé 02 Mars 2025"
+              "title": "processus_detaille"
             }
           }
         ]
@@ -170,6 +170,8 @@
   },
   "active": "2d8415665276f51b",
   "lastOpenFiles": [
+    "data_exploration.md",
+    "processus_detaille.md",
     "Résumé 02 Mars 2025.md"
   ]
 }
