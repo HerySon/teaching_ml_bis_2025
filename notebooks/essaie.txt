@@ -1,0 +1,29 @@
+
+import pandas as pd
+
+# Récupération du dataset
+path = "https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz"
+df = pd.read_csv(path, nrows=10, sep='\t',  encoding="utf-8")    
+df  
+
+#Nombre de lignes et colonnes dans l'échantillon
+print(f" Échantillon - Nombre de lignes : {df.shape[0]}")
+print(f" Échantillon - Nombre de colonnes : {df.shape[1]}")
+
+#Aperçu des premières lignes
+print("\n Aperçu des premières lignes :")
+print(df.head())
+
+#Types de données
+print("\n Types de données :")
+print(df.dtypes.value_counts())  # Compter combien il y a de chaque type de données
+print(df.dtypes)  # Voir les types exacts par colonne
+
+#Vérification mémoire utilisée
+print("\n Mémoire utilisée par l'échantillon :")
+print(df.memory_usage(deep=True).sum() / 1024**2, "MB")
+
+#Nombre de valeurs manquantes par colonne (seulement si > 50%)
+missing_values = df.isnull().sum() / df.shape[0] * 100
+print("\n Pourcentage de valeurs manquantes (>50%) :")         
+print(missing_values[missing_values > 50])
