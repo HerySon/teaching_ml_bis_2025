@@ -1,7 +1,5 @@
 # This worklow analyze code quality with pylint
-name: Code quality checkings (according to PEP 8 conventions)
-
-name: Pylint
+name: Code quality checkings (according to PEP 8 conventions) with pylint
 
 on: 
     pull_request:
