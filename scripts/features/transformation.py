@@ -234,6 +234,7 @@ def apply_pca_reduction(
 
 def apply_tsne_visualization(
     df: pd.DataFrame,
+    *,
     numeric_columns: Optional[List[str]] = None,
     perplexity: float = 30.0,
     n_components: int = 2,
