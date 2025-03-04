@@ -3,38 +3,43 @@ import numpy as np
 from typing import Dict, List, Tuple, Optional
 from functools import lru_cache
 from scipy.stats import entropy
+from ..data.analysis import analyze_data_quality
+from ..data.correlation_analysis import analyze_correlations
 
 def get_optimal_numeric_type(min_val: float, max_val: float, has_decimals: bool) -> np.dtype:
     """
-    Détermine le type numérique optimal pour une plage de valeurs donnée.
+    Détermine le type numérique optimal pour une colonne.
     
     Args:
         min_val: Valeur minimale
         max_val: Valeur maximale
-        has_decimals: Si True, utilise des types float
+        has_decimals: Si True, la colonne contient des décimales
         
     Returns:
-        np.dtype: Type de données optimal
+        np.dtype: Type numpy optimal
     """
+    if pd.isna(min_val) or pd.isna(max_val) or np.isinf(min_val) or np.isinf(max_val):
+        return np.float64
+        
     if has_decimals:
         if min_val >= np.finfo(np.float32).min and max_val <= np.finfo(np.float32).max:
             return np.float32
         return np.float64
     
     if min_val >= 0:
-        if max_val <= 255:
+        if max_val <= np.iinfo(np.uint8).max:
             return np.uint8
-        elif max_val <= 65535:
+        elif max_val <= np.iinfo(np.uint16).max:
             return np.uint16
-        elif max_val <= 4294967295:
+        elif max_val <= np.iinfo(np.uint32).max:
             return np.uint32
         return np.uint64
     else:
-        if min_val >= -128 and max_val <= 127:
+        if min_val >= np.iinfo(np.int8).min and max_val <= np.iinfo(np.int8).max:
             return np.int8
-        elif min_val >= -32768 and max_val <= 32767:
+        elif min_val >= np.iinfo(np.int16).min and max_val <= np.iinfo(np.int16).max:
             return np.int16
-        elif min_val >= -2147483648 and max_val <= 2147483647:
+        elif min_val >= np.iinfo(np.int32).min and max_val <= np.iinfo(np.int32).max:
             return np.int32
         return np.int64
 
@@ -179,7 +184,7 @@ def analyze_correlations(df: pd.DataFrame,
                         threshold: float = 0.7,
                         plot: bool = True) -> Dict:
     """
-    Analyse les corrélations entre variables numériques.
+    Analyse les corrélations entre variables numériques et détermine les variables à supprimer.
     
     Args:
         df: DataFrame à analyser
@@ -188,20 +193,54 @@ def analyze_correlations(df: pd.DataFrame,
         plot: Si True, affiche une heatmap des corrélations
     
     Returns:
-        Dict: Informations sur les corrélations
+        Dict: Informations sur les corrélations et variables à supprimer
     """
     numeric_df = df.select_dtypes(include=np.number)
     corr_matrix = numeric_df.corr(method=method)
     
     strong_correlations = []
+    # Dictionnaire pour compter le nombre de fortes corrélations par variable
+    correlation_counts = {col: 0 for col in corr_matrix.columns}
+    
     for i in range(len(corr_matrix.columns)):
         for j in range(i+1, len(corr_matrix.columns)):
             if abs(corr_matrix.iloc[i,j]) > threshold:
+                var1 = corr_matrix.columns[i]
+                var2 = corr_matrix.columns[j]
+                correlation = corr_matrix.iloc[i,j]
                 strong_correlations.append({
-                    'var1': corr_matrix.columns[i],
-                    'var2': corr_matrix.columns[j],
-                    'correlation': corr_matrix.iloc[i,j]
+                    'var1': var1,
+                    'var2': var2,
+                    'correlation': correlation
                 })
+                # Incrémenter le compteur pour les deux variables
+                correlation_counts[var1] += 1
+                correlation_counts[var2] += 1
+    
+    # Déterminer les variables à supprimer
+    variables_to_drop = []
+    processed_pairs = set()  # Pour éviter de traiter plusieurs fois les mêmes paires
+    
+    # Trier les corrélations par force de corrélation
+    sorted_correlations = sorted(strong_correlations, 
+                               key=lambda x: abs(x['correlation']), 
+                               reverse=True)
+    
+    for corr in sorted_correlations:
+        pair = tuple(sorted([corr['var1'], corr['var2']]))
+        if pair not in processed_pairs:
+            processed_pairs.add(pair)
+            # Choisir la variable à supprimer en fonction du nombre de corrélations
+            var1_count = correlation_counts[corr['var1']]
+            var2_count = correlation_counts[corr['var2']]
+            
+            # Supprimer la variable qui a le plus de corrélations fortes
+            if var1_count > var2_count:
+                if corr['var1'] not in variables_to_drop:
+                    variables_to_drop.append(corr['var1'])
+            else:
+                if corr['var2'] not in variables_to_drop:
+                    variables_to_drop.append(corr['var2'])
     
     if plot:
         try:
@@ -212,7 +251,9 @@ def analyze_correlations(df: pd.DataFrame,
     
     return {
         'correlation_matrix': corr_matrix,
-        'strong_correlations': strong_correlations
+        'strong_correlations': strong_correlations,
+        'variables_to_drop': variables_to_drop,
+        'correlation_counts': correlation_counts
     }
 
 def enhance_ordinal_detection(series: pd.Series) -> bool:
@@ -438,7 +479,7 @@ def analyze_category_distributions(df: pd.DataFrame) -> Dict:
         category_entropy = entropy(frequencies)
         
         # Calcul du déséquilibre des classes
-        imbalance_ratio = value_counts.max() / value_counts.min()
+        imbalance_ratio = value_counts.max() / value_counts.min() if len(value_counts) > 0 else 0
         
         distribution_info[column] = {
             'n_categories': len(value_counts),
@@ -447,7 +488,8 @@ def analyze_category_distributions(df: pd.DataFrame) -> Dict:
             'entropy': category_entropy,
             'imbalance_ratio': imbalance_ratio,
             'missing_ratio': df[column].isna().mean(),
-            'unique_ratio': df[column].nunique() / len(df)
+            'unique_ratio': df[column].nunique() / len(df),
+            'value_counts': value_counts.to_dict()  # Ajout des counts complets
         }
     
     return distribution_info
@@ -510,4 +552,163 @@ def memory_usage_report(df: pd.DataFrame) -> Dict:
                     f"Column '{column}' could be downcasted to uint8"
                 )
     
-    return report 
+    return report
+
+def filter_and_analyze_dataset(df: pd.DataFrame,
+                             max_categories: int = 30,
+                             min_unique_ratio: float = 0.01,
+                             missing_threshold: float = 0.5,
+                             correlation_threshold: float = 0.7,
+                             rare_threshold: float = 0.01,
+                             verbose: bool = True) -> Tuple[pd.DataFrame, Dict]:
+    """
+    Filtre et analyse un DataFrame selon plusieurs critères.
+    
+    Args:
+        df: DataFrame à analyser
+        max_categories: Nombre maximum de catégories pour les variables catégorielles
+        min_unique_ratio: Ratio minimum de valeurs uniques
+        missing_threshold: Seuil pour les valeurs manquantes
+        correlation_threshold: Seuil pour les corrélations
+        rare_threshold: Seuil pour les valeurs rares
+        verbose: Si True, affiche les détails
+        
+    Returns:
+        Tuple[pd.DataFrame, Dict]: DataFrame filtré et rapport d'analyse
+    """
+    analysis_report = {}
+    df_filtered = df.copy()
+    
+    # 1. Analyse initiale de la qualité des données
+    if verbose: print("1. Analyse de la qualité des données initiales :")
+    quality_report = analyze_data_quality(df)
+    analysis_report['quality_report'] = quality_report
+    if verbose:
+        print(f"Dimensions initiales : {df.shape}")
+        print(f"Types de données : \n{quality_report['dtypes']}\n")
+    
+    # 2. Filtrage des colonnes avec trop de valeurs manquantes
+    if verbose: print("\n2. Filtrage des colonnes avec trop de valeurs manquantes :")
+    missing_cols = [col for col, pct in quality_report['missing_values']['percentages'].items()
+                   if pct > missing_threshold * 100]
+    df_filtered = df_filtered.drop(columns=missing_cols)
+    if verbose:
+        print(f"Colonnes supprimées : {len(missing_cols)}")
+        print(f"Nouvelles dimensions : {df_filtered.shape}\n")
+    
+    # 3. Analyse des corrélations
+    if verbose: print("\n3. Analyse des corrélations :")
+    correlation_report = analyze_correlations(df_filtered, threshold=correlation_threshold, plot=False)
+    analysis_report['correlation_report'] = correlation_report
+    df_filtered = df_filtered.drop(columns=correlation_report['variables_to_drop'])
+    if verbose:
+        print(f"Colonnes corrélées supprimées : {len(correlation_report['variables_to_drop'])}")
+        print(f"Nouvelles dimensions : {df_filtered.shape}\n")
+    
+    # 4. Analyse des distributions catégorielles
+    if verbose: print("\n4. Analyse des distributions catégorielles :")
+    categorical_cols = df_filtered.select_dtypes(include=['object', 'category']).columns
+    category_distributions = {}
+    cols_to_drop = []
+    
+    for col in categorical_cols:
+        value_counts = df_filtered[col].value_counts()
+        frequencies = value_counts / len(df_filtered)
+        
+        # Calcul de l'entropie
+        entropy_val = -np.sum(frequencies * np.log2(frequencies)) if len(frequencies) > 0 else 0
+        
+        # Calcul du ratio de déséquilibre
+        imbalance_ratio = value_counts.max() / value_counts.min() if len(value_counts) > 0 else 0
+        
+        category_distributions[col] = {
+            'value_counts': value_counts.to_dict(),
+            'most_common': value_counts.head(5).to_dict(),
+            'n_categories': len(value_counts),
+            'entropy': entropy_val,
+            'imbalance_ratio': imbalance_ratio,
+            'missing_ratio': df_filtered[col].isna().mean(),
+            'unique_ratio': df_filtered[col].nunique() / len(df_filtered)
+        }
+        
+        # Vérifier le nombre de catégories
+        if len(value_counts) > max_categories:
+            cols_to_drop.append(col)
+            if verbose:
+                print(f"'{col}' a trop de catégories : {len(value_counts)}")
+        
+        # Vérifier les valeurs rares
+        elif (frequencies < rare_threshold).any():
+            rare_categories = frequencies[frequencies < rare_threshold]
+            if verbose:
+                print(f"'{col}' a des catégories rares : {len(rare_categories)}")
+    
+    df_filtered = df_filtered.drop(columns=cols_to_drop)
+    analysis_report['category_distributions'] = category_distributions
+    if verbose:
+        print(f"\nColonnes catégorielles supprimées : {len(cols_to_drop)}")
+        print(f"Nouvelles dimensions : {df_filtered.shape}\n")
+    
+    # 5. Optimisation de la mémoire
+    if verbose: print("\n5. Optimisation de la mémoire :")
+    initial_memory = df_filtered.memory_usage(deep=True).sum() / 1024**2
+    
+    # Optimiser les types numériques
+    numeric_cols = df_filtered.select_dtypes(include=np.number).columns
+    for col in numeric_cols:
+        col_data = df_filtered[col]
+        if not col_data.isna().any() and not np.isinf(col_data).any():
+            has_decimals = not np.all(col_data == col_data.astype(int))
+            optimal_type = get_optimal_numeric_type(col_data.min(), col_data.max(), has_decimals)
+            try:
+                df_filtered[col] = df_filtered[col].astype(optimal_type)
+            except Exception as e:
+                if verbose:
+                    print(f"Impossible d'optimiser la colonne {col}: {str(e)}")
+                continue
+    
+    # Optimiser les types catégoriels
+    categorical_cols = df_filtered.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        if df_filtered[col].nunique() / len(df_filtered) < 0.5:  # Si moins de 50% de valeurs uniques
+            df_filtered[col] = df_filtered[col].astype('category')
+    
+    final_memory = df_filtered.memory_usage(deep=True).sum() / 1024**2
+    memory_reduction = (initial_memory - final_memory) / initial_memory * 100
+    
+    # Générer un rapport détaillé sur l'utilisation de la mémoire
+    memory_report = {
+        'initial_mb': initial_memory,
+        'final_mb': final_memory,
+        'reduction_percentage': memory_reduction,
+        'memory_by_dtype': {},
+        'column_details': {}
+    }
+    
+    # Analyse par type de données
+    for dtype in df_filtered.dtypes.unique():
+        cols = df_filtered.select_dtypes(include=[dtype]).columns
+        memory = df_filtered[cols].memory_usage(deep=True).sum() / 1024**2  # Convertir en MB
+        memory_report['memory_by_dtype'][str(dtype)] = {
+            'memory_mb': memory,
+            'percentage': (memory / final_memory) * 100,
+            'n_columns': len(cols)
+        }
+    
+    # Analyse par colonne
+    for column in df_filtered.columns:
+        memory = df_filtered[column].memory_usage(deep=True) / 1024**2  # Convertir en MB
+        memory_report['column_details'][column] = {
+            'memory_mb': memory,
+            'percentage': (memory / final_memory) * 100,
+            'dtype': str(df_filtered[column].dtype)
+        }
+    
+    analysis_report['memory_usage'] = memory_report
+    
+    if verbose:
+        print(f"Mémoire initiale : {initial_memory:.2f} MB")
+        print(f"Mémoire finale : {final_memory:.2f} MB")
+        print(f"Réduction : {memory_reduction:.2f}%\n")
+    
+    return df_filtered, analysis_report
