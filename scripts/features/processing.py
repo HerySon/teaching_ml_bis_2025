@@ -1,47 +1,55 @@
-import pandas as pd
-import numpy as np
 from typing import Dict, List, Tuple, Optional
 from functools import lru_cache
+
+import numpy as np
+import pandas as pd
 from scipy.stats import entropy
 from ..data.analysis import analyze_data_quality
 from ..data.correlation_analysis import analyze_correlations
 
 def get_optimal_numeric_type(min_val: float, max_val: float, has_decimals: bool) -> np.dtype:
-    """
-    Détermine le type numérique optimal pour une colonne.
-    
-    Args:
-        min_val: Valeur minimale
-        max_val: Valeur maximale
-        has_decimals: Si True, la colonne contient des décimales
-        
-    Returns:
-        np.dtype: Type numpy optimal
-    """
+    """Détermine le type numérique optimal pour une colonne."""
     if pd.isna(min_val) or pd.isna(max_val) or np.isinf(min_val) or np.isinf(max_val):
         return np.float64
-        
+    
     if has_decimals:
-        if min_val >= np.finfo(np.float32).min and max_val <= np.finfo(np.float32).max:
-            return np.float32
-        return np.float64
+        return np.float32 if min_val >= np.finfo(np.float32).min and max_val <= np.finfo(np.float32).max else np.float64
     
     if min_val >= 0:
         if max_val <= np.iinfo(np.uint8).max:
             return np.uint8
-        elif max_val <= np.iinfo(np.uint16).max:
+        if max_val <= np.iinfo(np.uint16).max:
             return np.uint16
-        elif max_val <= np.iinfo(np.uint32).max:
+        if max_val <= np.iinfo(np.uint32).max:
             return np.uint32
         return np.uint64
-    else:
-        if min_val >= np.iinfo(np.int8).min and max_val <= np.iinfo(np.int8).max:
-            return np.int8
-        elif min_val >= np.iinfo(np.int16).min and max_val <= np.iinfo(np.int16).max:
-            return np.int16
-        elif min_val >= np.iinfo(np.int32).min and max_val <= np.iinfo(np.int32).max:
-            return np.int32
-        return np.int64
+    
+    if min_val >= np.iinfo(np.int8).min and max_val <= np.iinfo(np.int8).max:
+        return np.int8
+    if min_val >= np.iinfo(np.int16).min and max_val <= np.iinfo(np.int16).max:
+        return np.int16
+    if min_val >= np.iinfo(np.int32).min and max_val <= np.iinfo(np.int32).max:
+        return np.int32
+    return np.int64
+
+def optimize_numeric_columns(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
+    """Optimise les types numériques du DataFrame."""
+    info = {'optimized_columns': []}
+    df_optimized = df.copy()
+    
+    for col in df.select_dtypes(include=np.number).columns:
+        try:
+            series = df[col]
+            if not series.isna().any():
+                has_decimals = not np.all(series == series.astype(int))
+                optimal_type = get_optimal_numeric_type(series.min(), series.max(), has_decimals)
+                df_optimized[col] = series.astype(optimal_type)
+                info['optimized_columns'].append((col, str(series.dtype), str(optimal_type)))
+        except Exception as e:
+            print(f"Erreur lors de l'optimisation de {col}: {str(e)}")
+            continue
+    
+    return df_optimized, info
 
 def process_numeric_columns(df: pd.DataFrame, min_unique_ratio: float = 0.01) -> Tuple[pd.DataFrame, Dict]:
     """
@@ -556,162 +564,32 @@ def memory_usage_report(df: pd.DataFrame) -> Dict:
 
 def filter_and_analyze_dataset(df: pd.DataFrame,
                              max_categories: int = 30,
-                             min_unique_ratio: float = 0.01,
                              missing_threshold: float = 0.5,
-                             correlation_threshold: float = 0.7,
-                             rare_threshold: float = 0.01,
-                             verbose: bool = True) -> Tuple[pd.DataFrame, Dict]:
-    """
-    Filtre et analyse un DataFrame selon plusieurs critères.
-    
-    Args:
-        df: DataFrame à analyser
-        max_categories: Nombre maximum de catégories pour les variables catégorielles
-        min_unique_ratio: Ratio minimum de valeurs uniques
-        missing_threshold: Seuil pour les valeurs manquantes
-        correlation_threshold: Seuil pour les corrélations
-        rare_threshold: Seuil pour les valeurs rares
-        verbose: Si True, affiche les détails
-        
-    Returns:
-        Tuple[pd.DataFrame, Dict]: DataFrame filtré et rapport d'analyse
-    """
-    analysis_report = {}
-    df_filtered = df.copy()
-    
-    # 1. Analyse initiale de la qualité des données
-    if verbose: print("1. Analyse de la qualité des données initiales :")
-    quality_report = analyze_data_quality(df)
-    analysis_report['quality_report'] = quality_report
-    if verbose:
-        print(f"Dimensions initiales : {df.shape}")
-        print(f"Types de données : \n{quality_report['dtypes']}\n")
-    
-    # 2. Filtrage des colonnes avec trop de valeurs manquantes
-    if verbose: print("\n2. Filtrage des colonnes avec trop de valeurs manquantes :")
-    missing_cols = [col for col, pct in quality_report['missing_values']['percentages'].items()
-                   if pct > missing_threshold * 100]
-    df_filtered = df_filtered.drop(columns=missing_cols)
-    if verbose:
-        print(f"Colonnes supprimées : {len(missing_cols)}")
-        print(f"Nouvelles dimensions : {df_filtered.shape}\n")
-    
-    # 3. Analyse des corrélations
-    if verbose: print("\n3. Analyse des corrélations :")
-    correlation_report = analyze_correlations(df_filtered, threshold=correlation_threshold, plot=False)
-    analysis_report['correlation_report'] = correlation_report
-    df_filtered = df_filtered.drop(columns=correlation_report['variables_to_drop'])
-    if verbose:
-        print(f"Colonnes corrélées supprimées : {len(correlation_report['variables_to_drop'])}")
-        print(f"Nouvelles dimensions : {df_filtered.shape}\n")
-    
-    # 4. Analyse des distributions catégorielles
-    if verbose: print("\n4. Analyse des distributions catégorielles :")
-    categorical_cols = df_filtered.select_dtypes(include=['object', 'category']).columns
-    category_distributions = {}
-    cols_to_drop = []
-    
-    for col in categorical_cols:
-        value_counts = df_filtered[col].value_counts()
-        frequencies = value_counts / len(df_filtered)
-        
-        # Calcul de l'entropie
-        entropy_val = -np.sum(frequencies * np.log2(frequencies)) if len(frequencies) > 0 else 0
-        
-        # Calcul du ratio de déséquilibre
-        imbalance_ratio = value_counts.max() / value_counts.min() if len(value_counts) > 0 else 0
-        
-        category_distributions[col] = {
-            'value_counts': value_counts.to_dict(),
-            'most_common': value_counts.head(5).to_dict(),
-            'n_categories': len(value_counts),
-            'entropy': entropy_val,
-            'imbalance_ratio': imbalance_ratio,
-            'missing_ratio': df_filtered[col].isna().mean(),
-            'unique_ratio': df_filtered[col].nunique() / len(df_filtered)
-        }
-        
-        # Vérifier le nombre de catégories
-        if len(value_counts) > max_categories:
-            cols_to_drop.append(col)
-            if verbose:
-                print(f"'{col}' a trop de catégories : {len(value_counts)}")
-        
-        # Vérifier les valeurs rares
-        elif (frequencies < rare_threshold).any():
-            rare_categories = frequencies[frequencies < rare_threshold]
-            if verbose:
-                print(f"'{col}' a des catégories rares : {len(rare_categories)}")
-    
-    df_filtered = df_filtered.drop(columns=cols_to_drop)
-    analysis_report['category_distributions'] = category_distributions
-    if verbose:
-        print(f"\nColonnes catégorielles supprimées : {len(cols_to_drop)}")
-        print(f"Nouvelles dimensions : {df_filtered.shape}\n")
-    
-    # 5. Optimisation de la mémoire
-    if verbose: print("\n5. Optimisation de la mémoire :")
-    initial_memory = df_filtered.memory_usage(deep=True).sum() / 1024**2
-    
-    # Optimiser les types numériques
-    numeric_cols = df_filtered.select_dtypes(include=np.number).columns
-    for col in numeric_cols:
-        col_data = df_filtered[col]
-        if not col_data.isna().any() and not np.isinf(col_data).any():
-            has_decimals = not np.all(col_data == col_data.astype(int))
-            optimal_type = get_optimal_numeric_type(col_data.min(), col_data.max(), has_decimals)
-            try:
-                df_filtered[col] = df_filtered[col].astype(optimal_type)
-            except Exception as e:
-                if verbose:
-                    print(f"Impossible d'optimiser la colonne {col}: {str(e)}")
-                continue
-    
-    # Optimiser les types catégoriels
-    categorical_cols = df_filtered.select_dtypes(include=['object']).columns
-    for col in categorical_cols:
-        if df_filtered[col].nunique() / len(df_filtered) < 0.5:  # Si moins de 50% de valeurs uniques
-            df_filtered[col] = df_filtered[col].astype('category')
-    
-    final_memory = df_filtered.memory_usage(deep=True).sum() / 1024**2
-    memory_reduction = (initial_memory - final_memory) / initial_memory * 100
-    
-    # Générer un rapport détaillé sur l'utilisation de la mémoire
-    memory_report = {
-        'initial_mb': initial_memory,
-        'final_mb': final_memory,
-        'reduction_percentage': memory_reduction,
-        'memory_by_dtype': {},
-        'column_details': {}
+                             correlation_threshold: float = 0.7) -> Tuple[pd.DataFrame, Dict]:
+    """Filtre et analyse le DataFrame."""
+    info = {
+        'dropped_columns': [],
+        'correlation_info': {},
+        'category_info': {}
     }
     
-    # Analyse par type de données
-    for dtype in df_filtered.dtypes.unique():
-        cols = df_filtered.select_dtypes(include=[dtype]).columns
-        memory = df_filtered[cols].memory_usage(deep=True).sum() / 1024**2  # Convertir en MB
-        memory_report['memory_by_dtype'][str(dtype)] = {
-            'memory_mb': memory,
-            'percentage': (memory / final_memory) * 100,
-            'n_columns': len(cols)
-        }
+    # 1. Filtrer les colonnes avec trop de valeurs manquantes
+    missing_cols = [col for col in df.columns if df[col].isna().mean() > missing_threshold]
+    df_filtered = df.drop(columns=missing_cols)
+    info['dropped_columns'].extend((col, 'too_many_missing') for col in missing_cols)
     
-    # Analyse par colonne
-    for column in df_filtered.columns:
-        memory = df_filtered[column].memory_usage(deep=True) / 1024**2  # Convertir en MB
-        memory_report['column_details'][column] = {
-            'memory_mb': memory,
-            'percentage': (memory / final_memory) * 100,
-            'dtype': str(df_filtered[column].dtype)
-        }
+    # 2. Optimiser les types numériques
+    df_filtered, numeric_info = optimize_numeric_columns(df_filtered)
+    info.update(numeric_info)
     
-    analysis_report['memory_usage'] = memory_report
+    # 3. Gérer les colonnes catégorielles
+    cat_cols = df_filtered.select_dtypes(include=['object', 'category']).columns
+    for col in cat_cols:
+        if df_filtered[col].nunique() > max_categories:
+            df_filtered = df_filtered.drop(columns=[col])
+            info['dropped_columns'].append((col, 'too_many_categories'))
     
-    if verbose:
-        print(f"Mémoire initiale : {initial_memory:.2f} MB")
-        print(f"Mémoire finale : {final_memory:.2f} MB")
-        print(f"Réduction : {memory_reduction:.2f}%\n")
-    
-    return df_filtered, analysis_report
+    return df_filtered, info
 
 def optimize_memory_usage(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     """

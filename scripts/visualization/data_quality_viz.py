@@ -1,7 +1,8 @@
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
 from typing import Dict, List, Optional
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 def plot_data_quality_dashboard(df: pd.DataFrame, quality_report: Dict) -> None:
     """
@@ -11,6 +12,10 @@ def plot_data_quality_dashboard(df: pd.DataFrame, quality_report: Dict) -> None:
         df: DataFrame à analyser
         quality_report: Rapport de qualité des données
     """
+    # Utilisation du quality_report pour personnaliser l'affichage
+    missing_info = quality_report.get('missing_values', {})
+    dtype_info = quality_report.get('dtypes', {})
+    
     plt.style.use('default')
     
     # Création de trois figures séparées pour une meilleure lisibilité
@@ -200,10 +205,10 @@ def plot_missing_values(df: pd.DataFrame) -> None:
     
     # Plot missing values
     plt.plot(df.isnull().sum().values, 
-            color='red', linewidth=2)
+            **{'color': 'red', 'linewidth': 2})
     plt.scatter(range(len(df.columns)), 
             df.isnull().sum().values,
-            marker='o', markerfacecolor='gray', markersize=4)
+            **{'marker': 'o', 'markerfacecolor': 'gray', 'markersize': 4})
     
     plt.title('Missing Values by Column')
     plt.xlabel('Columns')

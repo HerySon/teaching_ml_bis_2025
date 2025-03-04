@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -208,11 +208,11 @@ def plot_sampling_comparison(original_data: pd.DataFrame,
     
     # Plot original data
     plt.hist(original_data[feature], bins=30, alpha=0.5, 
-            label='Original', color='red', linewidth=1.5)
+            label='Original', **{'color': 'red', 'linewidth': 1.5})
     
     # Plot sampled data
     plt.hist(sampled_data[feature], bins=30, alpha=0.7,
-            label='Sampled', facecolor='#3498db')
+            label='Sampled', **{'facecolor': '#3498db'})
     
     plt.title(title)
     plt.xlabel(feature)

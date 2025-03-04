@@ -1,10 +1,31 @@
-import pandas as pd
+from typing import Dict, List, Tuple
+
 import numpy as np
-from typing import Dict, List, Tuple, Optional
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder, RobustScaler
+import pandas as pd
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.impute import SimpleImputer
+
+def compute_feature_importance_pca(df: pd.DataFrame, n_components: int = 2) -> Dict:
+    """Calcule l'importance des features en utilisant PCA."""
+    # Standardisation des données
+    scaler = StandardScaler()
+    scaled_data = scaler.fit_transform(df)
+    
+    # Application de PCA
+    pca = PCA(n_components=n_components)
+    pca.fit_transform(scaled_data)
+    
+    # Calcul de l'importance des features
+    numeric_columns = df.columns
+    feature_importance = dict(zip(numeric_columns, np.abs(pca.components_).mean(axis=0)))
+    
+    return {
+        'feature_importance': feature_importance,
+        'explained_variance_ratio': pca.explained_variance_ratio_.tolist(),
+        'n_components': n_components
+    }
 
 def encode_categorical_features(
     df: pd.DataFrame,
