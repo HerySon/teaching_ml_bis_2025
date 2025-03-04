@@ -98,13 +98,12 @@ def _plot_numeric_distributions(numeric_df: pd.DataFrame) -> None:
             print(f"  Max: {stats.loc['max', col]:.2g}")
             print(f"  Nombre de valeurs non-nulles: {numeric_df[col].count()}")
 
-def plot_data_quality_dashboard(df: pd.DataFrame, quality_report: Dict) -> None:
+def plot_data_quality_dashboard(df: pd.DataFrame) -> None:
     """
     Crée un dashboard de visualisation de la qualité des données.
     
     Args:
         df: DataFrame à analyser
-        quality_report: Rapport de qualité des données
     """
     plt.style.use('default')
     
@@ -112,12 +111,11 @@ def plot_data_quality_dashboard(df: pd.DataFrame, quality_report: Dict) -> None:
     _plot_correlation_matrix(df.select_dtypes(include=[np.number]))
     _plot_numeric_distributions(df.select_dtypes(include=[np.number]))
 
-def plot_categorical_analysis(df: pd.DataFrame, cat_distributions: Dict) -> None:
+def plot_categorical_analysis(cat_distributions: Dict) -> None:
     """
     Visualise l'analyse des variables catégorielles.
     
     Args:
-        df: DataFrame à analyser
         cat_distributions: Résultats de l'analyse des distributions catégorielles
     """
     for col, dist_info in cat_distributions.items():
