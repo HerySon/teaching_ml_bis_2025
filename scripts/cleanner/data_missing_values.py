@@ -184,48 +184,65 @@ class DataFrameProcessor(object):
 class AdvancedDataFrameProcessor(DataFrameProcessor):
     """Advanced class for enhanced data processing tasks, inheriting from DataFrameProcessor."""
 
+    __init__ = DataFrameProcessor.__init__
+
+    def _call_methods__(self, methods: list, **kwargs) -> None:
+        """Call specified methods with keyword arguments."""
+        for method in methods:
+            if hasattr(self, method):
+                getattr(self, method)(**kwargs)
+            else:
+                raise ValueError(f"Method {method} not found in DataFrameProcessor.")
+            
+    def __col_content__(self) -> pd.Series:
+        """Get the content of a specific column."""
+        colums = self.df.columns
+        for col in colums:
+            if self.df[col].isnull().any():
+                return col, self.df[col].isnull().sum()
+            
+        return colums.to_string(), self.df[col].value_counts()
+
     @log_action("🔄 Imputation of missing values")
     def impute_missing_values(self, method='knn', missing_threshold=0.2, **kwargs) -> None:
         """Impute missing values using the specified method based on the percentage of missing values."""
         methods_of_this_function = {
             'knn': self._knn_imputation,
-            'frequent': lambda: SimpleImputer(strategy='most_frequent'),
-            'statistical': lambda: SimpleImputer(strategy='mean'),
-            'iterative': IterativeImputer,
-            'cca': self._cca_imputation,
-            'arbitrary': self._arbitrary_imputation,
-            'linear_regressio': self._linear_regression_imputation,
-            'mark': self._mark_imputed_values,
-            'simple': self._simple_imputation
+            'frequent': lambda: self._simple_imputation(strategy='most_frequent'),
+            'statistical': lambda: self._simple_imputation(strategy='mean'),
+            'iterative': lambda: IterativeImputer(**kwargs),
+            'cca': lambda: self._cca_imputation(col=self.__col_content__()[0]),
+            'arbitrary': lambda: self._arbitrary_imputation(col=self.__col_content__()[0], value=kwargs.get('value', 0)),
+            'linear_regression': lambda: self._linear_regression_imputation(col=self.__col_content__()[0]),
+            'mark': lambda: self._mark_imputed_values(col=self.__col_content__()[0]),
+            'simple': lambda: self._simple_imputation(strategy='mean')
         }
 
-        if method not in methods_of_this_function and method not in ['knn', 'cca', 'arbitrary', 'linear_regression', 'mark', 'simple']:
-            raise ValueError(f"Unknown imputation method: {method}")
-
-        for col in self.df.columns:
-            missing_percentage = self.df[col].isnull().mean()
-            if missing_percentage > missing_threshold:
-                print(f"Skipping column {col} with {missing_percentage:.2%} missing values.")
-                continue
-
-            if method in methods_of_this_function:
-                imputer = methods_of_this_function[method](**kwargs)
-                self.df[[col]] = imputer.fit_transform(self.df[[col]])
-                print(f"🔄 {method.capitalize()} imputation completed for column {col}.")
+        method = method.lower()
+        
+        if method in methods_of_this_function:
+            imputer = self.__call_methods__(methods=[method], **kwargs)
+            if callable(imputer):
+                imputer()
             else:
-                methods_of_this_function[method](col)
+                self.df = pd.DataFrame(imputer.fit_transform(self.df), columns=self.df.columns)
+        else:
+            raise ValueError(f"Imputation method {method} not recognized.")
 
     @log_action("🔍 Filtering irrelevant columns")
     def filter_irrelevant_columns(self, methods=['variance', 'missing_values', 'correlation'], **kwargs) -> None:
         """Filter out columns based on specified methods."""
         methods_of_this_function = {
-            'variance' : self._variance,
-            'missing_values': self._missing_values,
-            'correlation': self._correlation
+            'variance': lambda: self._variance(min_variance=kwargs.get('min_variance', 0.1)),
+            'missing_values': lambda: self._missing_values(max_missing=kwargs.get('max_missing', 0.2)),
+            'correlation': lambda: self._correlation(min_corr=kwargs.get('min_corr', 0.5))
         }
 
         for method in methods:
-            methods_of_this_function[method](**kwargs)
+            if method in methods_of_this_function:
+                self.__call_methods__(methods=[method], **kwargs)
+            else:
+                raise ValueError(f"Method {method} not recognized in filter_irrelevant_columns.")
 
     @log_action("🔍 Extracting errors")
     def get_errors(self) -> dict:
