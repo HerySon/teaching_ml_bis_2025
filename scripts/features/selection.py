@@ -1,12 +1,19 @@
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple
-from .processing import detect_ordinal_nature, get_optimal_numeric_type
+from .processing import (
+    detect_ordinal_nature, 
+    get_optimal_numeric_type,
+    process_numeric_columns,
+    process_categorical_columns,
+    analyze_correlations
+)
 
 def analyze_and_select_features(df: pd.DataFrame, 
                               max_categories: int = 30,
                               min_unique_ratio: float = 0.01,
-                              missing_threshold: float = 0.5) -> Tuple[pd.DataFrame, Dict]:
+                              missing_threshold: float = 0.5,
+                              correlation_threshold: float = 0.7) -> Tuple[pd.DataFrame, Dict]:
     """
     Détecte et sélectionne automatiquement les colonnes pertinentes du DataFrame.
     
@@ -15,6 +22,7 @@ def analyze_and_select_features(df: pd.DataFrame,
         max_categories: Nombre maximum de catégories pour les variables catégorielles
         min_unique_ratio: Ratio minimum de valeurs uniques pour les variables numériques
         missing_threshold: Seuil de valeurs manquantes acceptables
+        correlation_threshold: Seuil pour les corrélations fortes
         
     Returns:
         Tuple[pd.DataFrame, Dict]: DataFrame nettoyé et informations sur les features
@@ -26,61 +34,71 @@ def analyze_and_select_features(df: pd.DataFrame,
             'nominal': []
         },
         'dropped_columns': [],
-        'downcasted_columns': []
+        'downcasted_columns': [],
+        'correlation_info': None
     }
     
     df_clean = df.copy()
     
+    # Première passe : filtrage des colonnes avec trop de valeurs manquantes
     for column in df.columns:
-        # Vérification des valeurs manquantes
         missing_ratio = df[column].isna().mean()
         if missing_ratio > missing_threshold:
             feature_info['dropped_columns'].append((column, 'too_many_missing'))
-            continue
-            
-        # Analyse du type de données
-        dtype = df[column].dtype
-        n_unique = df[column].nunique()
-        unique_ratio = n_unique / len(df)
-        
-        # Traitement des variables numériques
-        if pd.api.types.is_numeric_dtype(dtype):
-            original_dtype = df[column].dtype
-            downcasted = pd.to_numeric(df[column], downcast='integer')
-            
-            if downcasted.dtype != original_dtype:
-                df_clean[column] = downcasted
-                feature_info['downcasted_columns'].append(
-                    (column, str(original_dtype), str(downcasted.dtype))
-                )
-            
-            if unique_ratio >= min_unique_ratio:
-                feature_info['feature_types']['numeric'].append(column)
-            else:
-                feature_info['dropped_columns'].append((column, 'low_variance'))
-                
-        # Traitement des variables catégorielles
-        elif pd.api.types.is_object_dtype(dtype) or pd.api.types.is_categorical_dtype(dtype):
-            if n_unique > max_categories:
-                feature_info['dropped_columns'].append((column, 'too_many_categories'))
-                continue
-            
-            if detect_ordinal_nature(df[column]):
-                df_clean[column] = pd.Categorical(df[column], ordered=True)
-                feature_info['feature_types']['ordinal'].append(column)
-            else:
-                df_clean[column] = pd.Categorical(df[column], ordered=False)
-                feature_info['feature_types']['nominal'].append(column)
     
-    # Suppression des colonnes filtrées
-    columns_to_drop = [col for col, _ in feature_info['dropped_columns']]
-    df_clean = df_clean.drop(columns=columns_to_drop)
+    # Suppression des colonnes avec trop de valeurs manquantes
+    columns_to_drop = [col for col, reason in feature_info['dropped_columns'] if reason == 'too_many_missing']
+    if columns_to_drop:
+        df_clean = df_clean.drop(columns=columns_to_drop)
+    
+    # Traitement des colonnes numériques
+    df_numeric, numeric_info = process_numeric_columns(df_clean, min_unique_ratio=min_unique_ratio)
+    feature_info['feature_types']['numeric'].extend(numeric_info['numeric_columns'])
+    feature_info['downcasted_columns'].extend(numeric_info['downcasted_columns'])
+    feature_info['dropped_columns'].extend(
+        (col, 'low_variance') for col in numeric_info.get('dropped_columns', [])
+    )
+    
+    # Traitement des colonnes catégorielles
+    df_categorical, categorical_info = process_categorical_columns(
+        df_numeric, 
+        max_categories=max_categories,
+        detect_ordinal=True
+    )
+    feature_info['feature_types']['ordinal'].extend(categorical_info['categorical_ordinal'])
+    feature_info['feature_types']['nominal'].extend(categorical_info['categorical_nominal'])
+    feature_info['dropped_columns'].extend(categorical_info['dropped_columns'])
+    
+    # Mise à jour du DataFrame nettoyé
+    df_clean = df_categorical
+    
+    # Deuxième passe : analyse des corrélations et suppression des variables corrélées
+    if feature_info['feature_types']['numeric']:
+        correlation_info = analyze_correlations(
+            df_clean, 
+            threshold=correlation_threshold,
+            plot=True
+        )
+        feature_info['correlation_info'] = correlation_info
+        
+        # Supprimer les variables fortement corrélées
+        if correlation_info['variables_to_drop']:
+            df_clean = df_clean.drop(columns=correlation_info['variables_to_drop'])
+            for var in correlation_info['variables_to_drop']:
+                feature_info['dropped_columns'].append((var, 'high_correlation'))
+                if var in feature_info['feature_types']['numeric']:
+                    feature_info['feature_types']['numeric'].remove(var)
     
     print(f"Colonnes numériques : {len(feature_info['feature_types']['numeric'])}")
     print(f"Colonnes ordinales : {len(feature_info['feature_types']['ordinal'])}")
     print(f"Colonnes nominales : {len(feature_info['feature_types']['nominal'])}")
     print(f"Colonnes supprimées : {len(feature_info['dropped_columns'])}")
     print(f"Colonnes optimisées : {len(feature_info['downcasted_columns'])}")
+    
+    if feature_info['correlation_info'] and feature_info['correlation_info']['variables_to_drop']:
+        print("\nVariables supprimées pour cause de forte corrélation:")
+        for var in feature_info['correlation_info']['variables_to_drop']:
+            print(f"- {var}")
     
     return df_clean, feature_info
 
