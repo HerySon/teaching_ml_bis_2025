@@ -607,20 +607,20 @@ def optimize_memory_usage(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     for column in df.columns:
         col_data = df[column]
         if pd.api.types.is_numeric_dtype(col_data):
-            has_decimals = not np.all(col_data == col_data.astype(int))
-            optimal_type = get_optimal_numeric_type(
-                col_data.min(), 
-                col_data.max(), 
-                has_decimals
-            )
             try:
+                has_decimals = not np.all(col_data == col_data.astype(int))
+                optimal_type = get_optimal_numeric_type(
+                    col_data.min(), 
+                    col_data.max(), 
+                    has_decimals
+                )
                 df[column] = df[column].astype(optimal_type)
                 info['optimized_columns'].append({
                     'column': column,
                     'original_type': str(col_data.dtype),
                     'new_type': str(optimal_type)
                 })
-            except Exception as e:
+            except (ValueError, TypeError, OverflowError) as e:
                 print(f"Impossible d'optimiser {column}: {str(e)}")
     
     info['final_memory'] = df.memory_usage(deep=True).sum() / 1024**2

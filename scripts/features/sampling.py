@@ -212,7 +212,7 @@ def plot_sampling_comparison(original_data: pd.DataFrame,
     
     # Plot sampled data
     plt.hist(sampled_data[feature], bins=30, alpha=0.7,
-            label='Sampled', **{'facecolor': '#3498db'})
+            label='Sampled', **{'facecolor': '#3498db', 'alpha': 0.7})
     
     plt.title(title)
     plt.xlabel(feature)

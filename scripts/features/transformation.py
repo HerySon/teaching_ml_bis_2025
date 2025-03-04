@@ -238,36 +238,26 @@ def apply_tsne_visualization(
     perplexity: float = 30.0,
     n_components: int = 2,
     n_jobs: int = 1,
-    method: str = 'barnes_hut',
-    learning_rate: str = 'auto',
-    early_exaggeration: float = 12.0,
-    pca_components: Optional[int] = 50,
-    sample_size: Optional[int] = None,
     random_state: int = 42
 ) -> Tuple[pd.DataFrame, TSNE, Optional[np.ndarray]]:
     """
-    Applique t-SNE pour la visualisation des données avec gestion optimisée de la mémoire.
+    Applique t-SNE pour la visualisation des données.
     
     Args:
         df: DataFrame à transformer
         numeric_columns: Liste des colonnes numériques à utiliser
-        perplexity: Paramètre de perplexité pour t-SNE (défaut: 30.0)
+        perplexity: Paramètre de perplexité pour t-SNE
         n_components: Nombre de composantes (2 ou 3)
         n_jobs: Nombre de jobs en parallèle
-        method: Méthode de calcul ('barnes_hut' ou 'exact')
-        learning_rate: Taux d'apprentissage ('auto' ou valeur numérique)
-        early_exaggeration: Facteur d'exagération précoce
-        pca_components: Nombre de composantes PCA pour réduction préalable (None pour désactiver)
-        sample_size: Taille de l'échantillon à utiliser (None pour utiliser toutes les données)
-        random_state: Graine aléatoire pour la reproductibilité
+        random_state: Graine aléatoire
         
     Returns:
-        Tuple[DataFrame, TSNE, Optional[np.ndarray]]: DataFrame transformé, modèle t-SNE et indices utilisés
+        Tuple[DataFrame, TSNE, Optional[np.ndarray]]: DataFrame transformé, modèle t-SNE et indices
     """
     if numeric_columns is None:
         numeric_columns = df.select_dtypes(include=np.number).columns.tolist()
     
-    # Imputation des valeurs manquantes avec la médiane
+    # Imputation des valeurs manquantes
     imputer = SimpleImputer(strategy='median')
     df_imputed = pd.DataFrame(
         imputer.fit_transform(df[numeric_columns]),
@@ -275,59 +265,19 @@ def apply_tsne_visualization(
         index=df.index
     )
     
-    # Sous-échantillonnage si nécessaire
-    selected_indices = None
-    if sample_size is not None and sample_size < len(df_imputed):
-        selected_indices = np.random.RandomState(random_state).choice(
-            len(df_imputed), 
-            size=sample_size, 
-            replace=False
-        )
-        df_imputed = df_imputed.iloc[selected_indices]
+    # Configuration de t-SNE
+    tsne = TSNE(
+        n_components=n_components,
+        perplexity=min(perplexity, len(df_imputed) - 1),
+        n_jobs=n_jobs,
+        random_state=random_state
+    )
     
-    # Réduction PCA préalable si demandée
-    if pca_components is not None and pca_components < len(numeric_columns):
-        pca = PCA(n_components=pca_components, random_state=random_state)
-        data_transformed = pca.fit_transform(df_imputed)
-        print(f"Variance expliquée après réduction PCA : {sum(pca.explained_variance_ratio_):.2%}")
-    else:
-        data_transformed = df_imputed.values
-    
-    # Configuration de t-SNE avec gestion des erreurs
     try:
-        tsne = TSNE(
-            n_components=n_components,
-            perplexity=min(perplexity, len(data_transformed) - 1),
-            method=method,
-            n_jobs=n_jobs,
-            learning_rate=learning_rate,
-            early_exaggeration=early_exaggeration,
-            random_state=random_state
-        )
-        tsne_result = tsne.fit_transform(data_transformed)
-        
-    except (ValueError, RuntimeError, MemoryError) as e:
+        tsne_result = tsne.fit_transform(df_imputed)
+    except (ValueError, RuntimeError) as e:
         print(f"Erreur lors de l'exécution de t-SNE: {str(e)}")
-        print("Tentative avec des paramètres plus conservateurs...")
-        
-        # Réduction supplémentaire si nécessaire
-        if isinstance(e, MemoryError) and pca_components is not None:
-            pca_components = min(pca_components, 20)
-            print(f"Réduction à {pca_components} composantes PCA...")
-            pca = PCA(n_components=pca_components, random_state=random_state)
-            data_transformed = pca.fit_transform(df_imputed)
-        
-        # Tentative avec des paramètres plus conservateurs
-        tsne = TSNE(
-            n_components=n_components,
-            perplexity=min(30.0, len(data_transformed) / 5),
-            method='barnes_hut',
-            n_jobs=1,
-            learning_rate=200.0,
-            early_exaggeration=12.0,
-            random_state=random_state
-        )
-        tsne_result = tsne.fit_transform(data_transformed)
+        return None, None, None
     
     # Création du DataFrame avec les composantes t-SNE
     component_names = [f"TSNE{i+1}" for i in range(n_components)]
@@ -337,8 +287,4 @@ def apply_tsne_visualization(
         index=df_imputed.index
     )
     
-    # Si on a sous-échantillonné, on retourne aussi les indices utilisés
-    if sample_size is not None and sample_size < len(df):
-        print(f"Visualisation basée sur un échantillon de {len(df_tsne)} points")
-    
-    return df_tsne, tsne, selected_indices 
+    return df_tsne, tsne, None 

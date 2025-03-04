@@ -206,7 +206,6 @@ def plot_missing_values(df: pd.DataFrame) -> None:
     missing_values = df.isnull().sum().values
     x_range = range(len(df.columns))
     
-    # Plot missing values
     plt.plot(missing_values, **{'color': 'red', 'linewidth': 2})
     plt.scatter(x_range, missing_values, **{'marker': 'o', 'markerfacecolor': 'gray', 'markersize': 4})
     
