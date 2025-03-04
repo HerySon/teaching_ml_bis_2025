@@ -1,16 +1,20 @@
-from setuptools import find_packages
-from setuptools import setup
+from setuptools import find_packages, setup
 
-with open('requirements.txt') as f:
-    content = f.readlines()
-requirements = [x.strip() for x in content if 'git+' not in x]
-
-setup(name='clustering_OFF',
-      version="1.0",
-      description="Teaching project for data science & AI classes",
-      packages=find_packages(),
-      install_requires=requirements,
-      test_suite='tests',
-      # include_package_data: to install data from MANIFEST.in
-      include_package_data=True,
-      zip_safe=False)
+setup(
+    name='clustering_OFF',
+    version='1.0',
+    description='Teaching project for data science & AI classes',
+    author='Your Name',
+    packages=find_packages(),
+    install_requires=[
+        'numpy>=1.21.0',
+        'pandas>=1.3.0',
+        'scikit-learn>=0.24.0',
+        'matplotlib>=3.4.0',
+        'seaborn>=0.11.0',
+        'jupyter>=1.0.0',
+        'ipykernel>=6.0.0'
+    ],
+    include_package_data=True,
+    zip_safe=False
+)
