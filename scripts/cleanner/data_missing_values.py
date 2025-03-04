@@ -186,7 +186,7 @@ class AdvancedDataFrameProcessor(DataFrameProcessor):
 
     __init__ = DataFrameProcessor.__init__
 
-    def _call_methods__(self, methods: list, **kwargs) -> None:
+    def __call_methods__(self, methods: list, **kwargs) -> None:
         """Call specified methods with keyword arguments."""
         for method in methods:
             if hasattr(self, method):
