@@ -1,8 +1,13 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
+from functools import wraps
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+def unused(func):
+    """Décorateur pour marquer les paramètres comme intentionnellement non utilisés."""
+    return func
 
 def _plot_type_distribution(df: pd.DataFrame) -> None:
     """Plot la distribution des types de variables."""
@@ -98,12 +103,14 @@ def _plot_numeric_distributions(numeric_df: pd.DataFrame) -> None:
             print(f"  Max: {stats.loc['max', col]:.2g}")
             print(f"  Nombre de valeurs non-nulles: {numeric_df[col].count()}")
 
-def plot_data_quality_dashboard(df: pd.DataFrame) -> None:
+@unused
+def plot_data_quality_dashboard(df: pd.DataFrame, quality_report: Dict) -> None:
     """
     Crée un dashboard de visualisation de la qualité des données.
     
     Args:
         df: DataFrame à analyser
+        quality_report: Rapport de qualité des données (non utilisé)
     """
     plt.style.use('default')
     
@@ -111,11 +118,13 @@ def plot_data_quality_dashboard(df: pd.DataFrame) -> None:
     _plot_correlation_matrix(df.select_dtypes(include=[np.number]))
     _plot_numeric_distributions(df.select_dtypes(include=[np.number]))
 
-def plot_categorical_analysis(cat_distributions: Dict) -> None:
+@unused
+def plot_categorical_analysis(df: pd.DataFrame, cat_distributions: Dict) -> None:
     """
     Visualise l'analyse des variables catégorielles.
     
     Args:
+        df: DataFrame à analyser (non utilisé)
         cat_distributions: Résultats de l'analyse des distributions catégorielles
     """
     for col, dist_info in cat_distributions.items():
