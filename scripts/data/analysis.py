@@ -1,6 +1,8 @@
-import pandas as pd
-import numpy as np
 from typing import Dict, List
+
+import numpy as np
+import pandas as pd
+
 from .correlation_analysis import analyze_correlations
 
 def analyze_data_quality(df: pd.DataFrame) -> Dict:

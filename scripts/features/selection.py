@@ -1,6 +1,7 @@
-import pandas as pd
-import numpy as np
 from typing import Dict, List, Tuple
+
+import numpy as np
+import pandas as pd
 from .processing import (
     detect_ordinal_nature, 
     get_optimal_numeric_type,
@@ -35,7 +36,10 @@ def analyze_and_select_features(df: pd.DataFrame,
         },
         'dropped_columns': [],
         'downcasted_columns': [],
-        'correlation_info': None
+        'correlation_info': {
+            'variables_to_drop': [],
+            'correlation_matrix': None
+        }
     }
     
     df_clean = df.copy()
@@ -95,7 +99,7 @@ def analyze_and_select_features(df: pd.DataFrame,
     print(f"Colonnes supprimées : {len(feature_info['dropped_columns'])}")
     print(f"Colonnes optimisées : {len(feature_info['downcasted_columns'])}")
     
-    if feature_info['correlation_info'] and feature_info['correlation_info']['variables_to_drop']:
+    if feature_info.get('correlation_info') and feature_info['correlation_info'].get('variables_to_drop'):
         print("\nVariables supprimées pour cause de forte corrélation:")
         for var in feature_info['correlation_info']['variables_to_drop']:
             print(f"- {var}")

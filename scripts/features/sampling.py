@@ -1,6 +1,7 @@
-import pandas as pd
+from typing import Dict, List, Optional
+
 import numpy as np
-from typing import Dict, List, Tuple
+import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
@@ -196,4 +197,26 @@ def plot_sampling_results(original_df: pd.DataFrame,
     print("\nRésumé de l'échantillonnage:")
     print(f"Taille originale: {sampling_info['initial_size']}")
     print(f"Taille de l'échantillon: {sampling_info['final_size']}")
-    print(f"Ratio: {sampling_info['final_size']/sampling_info['initial_size']*100:.1f}%") 
+    print(f"Ratio: {sampling_info['final_size']/sampling_info['initial_size']*100:.1f}%")
+
+def plot_sampling_comparison(original_data: pd.DataFrame, 
+                           sampled_data: pd.DataFrame,
+                           feature: str,
+                           title: str = "Distribution Comparison") -> None:
+    """Plot the distribution comparison between original and sampled data."""
+    plt.figure(figsize=(10, 6))
+    
+    # Plot original data
+    plt.hist(original_data[feature], bins=30, alpha=0.5, 
+            label='Original', color='red', linewidth=1.5)
+    
+    # Plot sampled data
+    plt.hist(sampled_data[feature], bins=30, alpha=0.7,
+            label='Sampled', facecolor='#3498db')
+    
+    plt.title(title)
+    plt.xlabel(feature)
+    plt.ylabel('Frequency')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.show() 

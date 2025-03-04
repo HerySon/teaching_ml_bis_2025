@@ -192,4 +192,33 @@ def plot_memory_usage(memory_report: Dict) -> None:
     plt.title('Top 10 des colonnes les plus gourmandes en mémoire', fontsize=14, pad=20)
     plt.grid(True, linestyle='--', alpha=0.3)
     plt.tight_layout()
-    plt.show() 
+    plt.show()
+
+def plot_missing_values(df: pd.DataFrame) -> None:
+    """Plot missing values heatmap."""
+    plt.figure(figsize=(12, 6))
+    
+    # Plot missing values
+    plt.plot(df.isnull().sum().values, 
+            color='red', linewidth=2)
+    plt.scatter(range(len(df.columns)), 
+            df.isnull().sum().values,
+            marker='o', markerfacecolor='gray', markersize=4)
+    
+    plt.title('Missing Values by Column')
+    plt.xlabel('Columns')
+    plt.ylabel('Missing Values Count')
+    plt.xticks(range(len(df.columns)), df.columns, rotation=45, ha='right')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+def analyze_distribution(series: pd.Series) -> Dict:
+    """Analyze the distribution of a series."""
+    return {
+        'mean': series.mean(),
+        'median': series.median(),
+        'std': series.std(),
+        'skew': series.skew(),
+        'kurtosis': series.kurtosis()
+    } 

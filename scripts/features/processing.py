@@ -712,3 +712,39 @@ def filter_and_analyze_dataset(df: pd.DataFrame,
         print(f"Réduction : {memory_reduction:.2f}%\n")
     
     return df_filtered, analysis_report
+
+def optimize_memory_usage(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
+    """
+    Optimise l'utilisation de la mémoire du DataFrame.
+    """
+    info = {
+        'initial_memory': df.memory_usage(deep=True).sum() / 1024**2,
+        'optimized_columns': []
+    }
+    
+    for column in df.columns:
+        col_data = df[column]
+        if pd.api.types.is_numeric_dtype(col_data):
+            has_decimals = not np.all(col_data == col_data.astype(int))
+            optimal_type = get_optimal_numeric_type(
+                col_data.min(), 
+                col_data.max(), 
+                has_decimals
+            )
+            try:
+                df[column] = df[column].astype(optimal_type)
+                info['optimized_columns'].append({
+                    'column': column,
+                    'original_type': str(col_data.dtype),
+                    'new_type': str(optimal_type)
+                })
+            except Exception as e:
+                print(f"Impossible d'optimiser {column}: {str(e)}")
+    
+    info['final_memory'] = df.memory_usage(deep=True).sum() / 1024**2
+    info['memory_reduction_pct'] = (
+        (info['initial_memory'] - info['final_memory']) / 
+        info['initial_memory'] * 100
+    )
+    
+    return df, info
