@@ -1,7 +1,8 @@
-import pandas as pd
-import numpy as np
+from typing import Dict
+
 import matplotlib.pyplot as plt
-from typing import Dict, List, Optional, Tuple
+import numpy as np
+import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
 def plot_pca_results(pca_info: Dict, figsize: tuple = (12, 5)):

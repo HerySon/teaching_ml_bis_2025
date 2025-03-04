@@ -15,22 +15,27 @@ def get_optimal_numeric_type(min_val: float, max_val: float, has_decimals: bool)
     if has_decimals:
         return np.float32 if min_val >= np.finfo(np.float32).min and max_val <= np.finfo(np.float32).max else np.float64
     
+    # Déterminer le type optimal pour les entiers
+    dtype = np.int64  # Type par défaut
+    
     if min_val >= 0:
         if max_val <= np.iinfo(np.uint8).max:
-            return np.uint8
-        if max_val <= np.iinfo(np.uint16).max:
-            return np.uint16
-        if max_val <= np.iinfo(np.uint32).max:
-            return np.uint32
-        return np.uint64
+            dtype = np.uint8
+        elif max_val <= np.iinfo(np.uint16).max:
+            dtype = np.uint16
+        elif max_val <= np.iinfo(np.uint32).max:
+            dtype = np.uint32
+        else:
+            dtype = np.uint64
+    else:
+        if min_val >= np.iinfo(np.int8).min and max_val <= np.iinfo(np.int8).max:
+            dtype = np.int8
+        elif min_val >= np.iinfo(np.int16).min and max_val <= np.iinfo(np.int16).max:
+            dtype = np.int16
+        elif min_val >= np.iinfo(np.int32).min and max_val <= np.iinfo(np.int32).max:
+            dtype = np.int32
     
-    if min_val >= np.iinfo(np.int8).min and max_val <= np.iinfo(np.int8).max:
-        return np.int8
-    if min_val >= np.iinfo(np.int16).min and max_val <= np.iinfo(np.int16).max:
-        return np.int16
-    if min_val >= np.iinfo(np.int32).min and max_val <= np.iinfo(np.int32).max:
-        return np.int32
-    return np.int64
+    return dtype
 
 def optimize_numeric_columns(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     """Optimise les types numériques du DataFrame."""
@@ -45,7 +50,7 @@ def optimize_numeric_columns(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
                 optimal_type = get_optimal_numeric_type(series.min(), series.max(), has_decimals)
                 df_optimized[col] = series.astype(optimal_type)
                 info['optimized_columns'].append((col, str(series.dtype), str(optimal_type)))
-        except Exception as e:
+        except (ValueError, TypeError, OverflowError) as e:
             print(f"Erreur lors de l'optimisation de {col}: {str(e)}")
             continue
     
@@ -564,8 +569,7 @@ def memory_usage_report(df: pd.DataFrame) -> Dict:
 
 def filter_and_analyze_dataset(df: pd.DataFrame,
                              max_categories: int = 30,
-                             missing_threshold: float = 0.5,
-                             correlation_threshold: float = 0.7) -> Tuple[pd.DataFrame, Dict]:
+                             missing_threshold: float = 0.5) -> Tuple[pd.DataFrame, Dict]:
     """Filtre et analyse le DataFrame."""
     info = {
         'dropped_columns': [],

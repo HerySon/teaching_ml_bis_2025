@@ -1,8 +1,14 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import (
+    StandardScaler,
+    MinMaxScaler,
+    LabelEncoder,
+    OneHotEncoder,
+    RobustScaler
+)
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.impute import SimpleImputer
@@ -18,8 +24,7 @@ def compute_feature_importance_pca(df: pd.DataFrame, n_components: int = 2) -> D
     pca.fit_transform(scaled_data)
     
     # Calcul de l'importance des features
-    numeric_columns = df.columns
-    feature_importance = dict(zip(numeric_columns, np.abs(pca.components_).mean(axis=0)))
+    feature_importance = dict(zip(df.columns, np.abs(pca.components_).mean(axis=0)))
     
     return {
         'feature_importance': feature_importance,

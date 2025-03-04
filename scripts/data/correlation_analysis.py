@@ -1,6 +1,7 @@
-import pandas as pd
-import numpy as np
 from typing import Dict
+
+import numpy as np
+import pandas as pd
 
 def analyze_correlations(df: pd.DataFrame,
                         method: str = 'pearson',

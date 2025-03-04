@@ -1,6 +1,7 @@
-import pandas as pd
-import numpy as np
 from typing import Dict, List, Tuple
+
+import numpy as np
+import pandas as pd
 from ..features.selection import analyze_and_select_features
 from ..features.processing import analyze_correlations
 

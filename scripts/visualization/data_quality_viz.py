@@ -203,17 +203,17 @@ def plot_missing_values(df: pd.DataFrame) -> None:
     """Plot missing values heatmap."""
     plt.figure(figsize=(12, 6))
     
+    missing_values = df.isnull().sum().values
+    x_range = range(len(df.columns))
+    
     # Plot missing values
-    plt.plot(df.isnull().sum().values, 
-            **{'color': 'red', 'linewidth': 2})
-    plt.scatter(range(len(df.columns)), 
-            df.isnull().sum().values,
-            **{'marker': 'o', 'markerfacecolor': 'gray', 'markersize': 4})
+    plt.plot(missing_values, **{'color': 'red', 'linewidth': 2})
+    plt.scatter(x_range, missing_values, **{'marker': 'o', 'markerfacecolor': 'gray', 'markersize': 4})
     
     plt.title('Missing Values by Column')
     plt.xlabel('Columns')
     plt.ylabel('Missing Values Count')
-    plt.xticks(range(len(df.columns)), df.columns, rotation=45, ha='right')
+    plt.xticks(x_range, df.columns, rotation=45, ha='right')
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.show()
