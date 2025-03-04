@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional, List
 
 def handle_duplicates(df: pd.DataFrame, strategy: str = 'analyze') -> Tuple[pd.DataFrame, Dict]:
     """
