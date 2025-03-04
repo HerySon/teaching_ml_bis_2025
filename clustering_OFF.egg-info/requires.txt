@@ -1,0 +1,10 @@
+pip>=9
+setuptools>=26
+wheel>=0.29
+numpy
+pandas
+scikit-learn
+jupyter
+matplotlib
+seaborn
+plotly

@@ -1,0 +1,16 @@
+Metadata-Version: 2.2
+Name: clustering_OFF
+Version: 1.0
+Summary: Teaching project for data science & AI classes
+Requires-Dist: pip>=9
+Requires-Dist: setuptools>=26
+Requires-Dist: wheel>=0.29
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: scikit-learn
+Requires-Dist: jupyter
+Requires-Dist: matplotlib
+Requires-Dist: seaborn
+Requires-Dist: plotly
+Dynamic: requires-dist
+Dynamic: summary
