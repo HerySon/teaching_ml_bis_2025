@@ -79,6 +79,55 @@ class DataFrameProcessor(object):
         nominal_cols = [col for col in object_cols if self.df[col].nunique() > self.category_threshold]
 
         return numeric_cols, ordinal_cols, nominal_cols
+    
+    def _knn_imputation(self, n_neighbors=5, weights='uniform', metric='nan_euclidean', **kwargs) -> None:
+        """Perform KNN imputation for missing values with more complex configurations."""
+        imputer = KNNImputer(n_neighbors=n_neighbors, weights=weights, metric=metric, **kwargs)
+        self.df = pd.DataFrame(imputer.fit_transform(self.df), columns=self.df.columns)
+
+    def _simple_imputation(self, strategy: Literal['most_frequent', 'mean']) -> None:
+        """Perform simple imputation for missing values."""
+        imputer = SimpleImputer(strategy=strategy)
+        self.df = pd.DataFrame(imputer.fit_transform(self.df), columns=self.df.columns)
+
+    def _cca_imputation(self, col: str) -> None:
+        """Perform complete case analysis imputation for a specific column."""
+        self.df.dropna(subset=[col], inplace=True)
+
+    def _arbitrary_imputation(self, col: str, value: float) -> None:
+        """Perform arbitrary value imputation for a specific column."""
+        self.df[col].fillna(value, inplace=True)
+
+    def _linear_regression_imputation(self, col: str) -> None:
+        """Perform linear regression imputation for a specific column."""
+        not_null_df = self.df[self.df[col].notnull()]
+        null_df = self.df[self.df[col].isnull()]
+        model = LinearRegression()
+        model.fit(not_null_df.drop(columns=[col]), not_null_df[col])
+        self.df.loc[self.df[col].isnull(), col] = model.predict(null_df.drop(columns=[col]))
+
+    def _mark_imputed_values(self, col: str) -> None:
+        """Mark imputed values in a specific column."""
+        self.df[col].fillna('Imputed', inplace=True)
+
+    def _correlation(self, min_corr: float) -> None:
+        """Filter out columns based on correlation threshold."""
+        corr_matrix = self.df.corr(numeric_only=True)
+        for col in corr_matrix.columns:
+            if all(abs(corr_matrix[col]) < min_corr):
+                self.df.drop(columns=[col], inplace=True)
+
+    def _missing_values(self, max_missing: float) -> None:
+        """Filter out columns based on missing value threshold."""
+        for col in self.df.columns:
+            if self.df[col].isnull().mean() > max_missing:
+                self.df.drop(columns=[col], inplace=True)
+
+    def _variance(self, min_variance: float) -> None:
+        """Filter out columns based on variance threshold."""
+        for col in self.df.columns:
+            if self.df[col].var() < min_variance:
+                self.df.drop(columns=[col], inplace=True)
 
     @async_executor
     def _apply_downcasting(self) -> None:
@@ -138,9 +187,19 @@ class AdvancedDataFrameProcessor(DataFrameProcessor):
     @log_action("🔄 Imputation of missing values")
     def impute_missing_values(self, method='knn', missing_threshold=0.2, **kwargs) -> None:
         """Impute missing values using the specified method based on the percentage of missing values."""
-        methods_of_this_function = ['knn', 'cca', 'arbitrary', 'frequent', 'statistical', 'linear_regression', 'iterative', 'mark']
+        methods_of_this_function = {
+            'knn': self._knn_imputation,
+            'frequent': lambda: SimpleImputer(strategy='most_frequent'),
+            'statistical': lambda: SimpleImputer(strategy='mean'),
+            'iterative': IterativeImputer,
+            'cca': self._cca_imputation,
+            'arbitrary': self._arbitrary_imputation,
+            'linear_regressio': self._linear_regression_imputation,
+            'mark': self._mark_imputed_values,
+            'simple': self._simple_imputation
+        }
 
-        if method not in methods_of_this_function:
+        if method not in methods_of_this_function and method not in ['knn', 'cca', 'arbitrary', 'linear_regression', 'mark', 'simple']:
             raise ValueError(f"Unknown imputation method: {method}")
 
         for col in self.df.columns:
@@ -149,75 +208,24 @@ class AdvancedDataFrameProcessor(DataFrameProcessor):
                 print(f"Skipping column {col} with {missing_percentage:.2%} missing values.")
                 continue
 
-            match method:
-                case 'knn':
-                    n_neighbors = kwargs.get('n_neighbors', 5)
-                    imputer = KNNImputer(n_neighbors=n_neighbors)
-                    self.df[[col]] = imputer.fit_transform(self.df[[col]])
-                    print(f"🔄 KNN imputation completed for column {col}.")
-                case 'cca':
-                    self.df.dropna(subset=[col], inplace=True)
-                    print(f"🔄 Complete Case Analysis performed for column {col}. Rows with missing values dropped.")
-                case 'arbitrary':
-                    arbitrary_value = kwargs.get('value', 0)
-                    self.df[col].fillna(arbitrary_value, inplace=True)
-                    print(f"🔄 Arbitrary value imputation performed for column {col} with value: {arbitrary_value}.")
-                case 'frequent':
-                    imputer = SimpleImputer(strategy='most_frequent')
-                    self.df[[col]] = imputer.fit_transform(self.df[[col]])
-                    print(f"🔄 Frequent category imputation completed for column {col}.")
-                case 'statistical':
-                    imputer = SimpleImputer(strategy='mean')
-                    self.df[[col]] = imputer.fit_transform(self.df[[col]])
-                    print(f"🔄 Statistical imputation performed for column {col}.")
-                case 'linear_regression':
-                    if self.df[col].isnull().any():
-                        not_null_df = self.df[self.df[col].notnull()]
-                        null_df = self.df[self.df[col].isnull()]
-                        model = LinearRegression()
-                        model.fit(not_null_df.drop(columns=[col]), not_null_df[col])
-                        self.df.loc[self.df[col].isnull(), col] = model.predict(null_df.drop(columns=[col]))
-                    print(f"🔄 Linear Regression imputation performed for column {col}.")
-                case 'iterative':
-                    imputer = IterativeImputer()
-                    self.df[[col]] = imputer.fit_transform(self.df[[col]])
-                    print(f"🔄 Iterative imputation performed for column {col}.")
-                case 'mark':
-                    self.df[col].fillna('Imputed', inplace=True)
-                    print(f"🔄 Marking imputed values completed for column {col}.")
-    
+            if method in methods_of_this_function:
+                imputer = methods_of_this_function[method](**kwargs)
+                self.df[[col]] = imputer.fit_transform(self.df[[col]])
+                print(f"🔄 {method.capitalize()} imputation completed for column {col}.")
+            else:
+                methods_of_this_function[method](col)
+
     @log_action("🔍 Filtering irrelevant columns")
     def filter_irrelevant_columns(self, methods=['variance', 'missing_values', 'correlation'], **kwargs) -> None:
         """Filter out columns based on specified methods."""
-        methods_of_this_function = ['variance', 'missing_values', 'correlation']
+        methods_of_this_function = {
+            'variance' : self._variance,
+            'missing_values': self._missing_values,
+            'correlation': self._correlation
+        }
 
         for method in methods:
-            if method not in methods_of_this_function:
-                raise ValueError(f"Unknown filtering method: {method}")
-            
-        irrelevant_cols = set()
-
-        for method in methods:
-            match method:
-                case 'variance':
-                    min_variance = kwargs.get('min_variance', 0.01)
-                    low_variance_cols = [col for col in self.df.columns if self.df[col].var() < min_variance]
-                    irrelevant_cols.update(low_variance_cols)
-                    print(f"Removed low variance columns: {low_variance_cols}")
-
-                case 'missing_values':
-                    max_missing = kwargs.get('max_missing', 0.5)
-                    high_missing_cols = [col for col in self.df.columns if self.df[col].isnull().mean() > max_missing]
-                    irrelevant_cols.update(high_missing_cols)
-                    print(f"Removed high missing value columns: {high_missing_cols}")
-
-                case 'correlation':
-                    min_corr = kwargs.get('min_corr', 0.05)
-                    corr_matrix = self.df.corr(numeric_only=True)
-                    for col in corr_matrix.columns:
-                        if all(abs(corr_matrix[col]) < min_corr):
-                            irrelevant_cols.add(col)
-                    print(f"Removed low correlation columns: {irrelevant_cols}")
+            methods_of_this_function[method](**kwargs)
 
     @log_action("🔍 Extracting errors")
     def get_errors(self) -> dict:
