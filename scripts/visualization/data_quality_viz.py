@@ -4,23 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-def plot_data_quality_dashboard(df: pd.DataFrame, quality_report: Dict) -> None:
-    """
-    Crée un dashboard de visualisation de la qualité des données.
-    
-    Args:
-        df: DataFrame à analyser
-        quality_report: Rapport de qualité des données
-    """
-    # Utilisation du quality_report pour personnaliser l'affichage
-    missing_info = quality_report.get('missing_values', {})
-    dtype_info = quality_report.get('dtypes', {})
-    
-    plt.style.use('default')
-    
-    # Création de trois figures séparées pour une meilleure lisibilité
-    
-    # Figure 1: Distribution des types de variables
+def _plot_type_distribution(df: pd.DataFrame) -> None:
+    """Plot la distribution des types de variables."""
     plt.figure(figsize=(12, 8))
     type_counts = df.dtypes.value_counts()
     colors = ['#3498db', '#2ecc71', '#e74c3c', '#f1c40f']
@@ -28,8 +13,8 @@ def plot_data_quality_dashboard(df: pd.DataFrame, quality_report: Dict) -> None:
             labels=type_counts.index, 
             autopct='%1.1f%%',
             colors=colors[:len(type_counts)],
-            explode=[0.1] * len(type_counts),  # Plus de séparation
-            textprops={'fontsize': 12})  # Labels plus grands
+            explode=[0.1] * len(type_counts),
+            textprops={'fontsize': 12})
     plt.title('Distribution des types de variables', fontsize=14, pad=20)
     plt.legend(type_counts.index,
               title="Types de données",
@@ -39,91 +24,93 @@ def plot_data_quality_dashboard(df: pd.DataFrame, quality_report: Dict) -> None:
               bbox_to_anchor=(1, 0, 0.5, 1))
     plt.tight_layout()
     plt.show()
+
+def _plot_correlation_matrix(numeric_df: pd.DataFrame) -> None:
+    """Plot la matrice de corrélation."""
+    if numeric_df.empty:
+        return
+        
+    plt.figure(figsize=(15, 10))
+    corr = numeric_df.corr()
     
-    # Figure 2: Matrice de corrélation
-    numeric_df = df.select_dtypes(include=[np.number])
-    if not numeric_df.empty:
-        plt.figure(figsize=(15, 10))
-        corr = numeric_df.corr()
+    mask = np.triu(np.ones_like(corr, dtype=bool))
+    corr_masked = np.ma.array(corr, mask=mask)
+    
+    im = plt.imshow(corr_masked, cmap='RdBu_r', aspect='auto', vmin=-1, vmax=1)
+    plt.colorbar(im, label='Coefficient de corrélation')
+    
+    plt.xticks(range(len(corr.columns)), corr.columns, rotation=45, ha='right', fontsize=10)
+    plt.yticks(range(len(corr.columns)), corr.columns, fontsize=10)
+    
+    for i in range(len(corr.columns)):
+        for j in range(len(corr.columns)):
+            if i > j:
+                text = plt.text(j, i, f'{corr.iloc[i, j]:.2f}',
+                              ha='center', va='center',
+                              color='white' if abs(corr.iloc[i, j]) > 0.3 else 'black',
+                              fontsize=9,
+                              fontweight='bold')
+    plt.title('Matrice de corrélation des variables numériques', fontsize=14, pad=20)
+    plt.tight_layout()
+    plt.show()
+
+def _plot_numeric_distributions(numeric_df: pd.DataFrame) -> None:
+    """Plot les distributions des variables numériques."""
+    if numeric_df.empty:
+        return
         
-        # Masquer le triangle supérieur
-        mask = np.triu(np.ones_like(corr, dtype=bool))
-        corr_masked = np.ma.array(corr, mask=mask)
+    stats = numeric_df.agg(['mean', 'std', 'min', 'max'])
+    ranges = (stats.loc['max'] - stats.loc['min']).abs()
+    sorted_columns = ranges.sort_values().index
+    column_groups = [sorted_columns[i:i+5] for i in range(0, len(sorted_columns), 5)]
+    
+    for idx, group in enumerate(column_groups):
+        plt.figure(figsize=(12, 6))
+        data = [numeric_df[col].dropna() for col in group]
+        bp = plt.boxplot(data,
+                       labels=group,
+                       patch_artist=True,
+                       medianprops={"color": "red", "linewidth": 2},
+                       flierprops={"marker": "o", "markerfacecolor": "gray", "markersize": 4})
         
-        # Création de la heatmap
-        im = plt.imshow(corr_masked, cmap='RdBu_r', aspect='auto', vmin=-1, vmax=1)
-        plt.colorbar(im, label='Coefficient de corrélation')
+        for patch in bp['boxes']:
+            patch.set_facecolor('#3498db')
+            patch.set_alpha(0.7)
         
-        # Amélioration des labels
-        plt.xticks(range(len(corr.columns)), corr.columns, rotation=45, ha='right', fontsize=10)
-        plt.yticks(range(len(corr.columns)), corr.columns, fontsize=10)
+        plt.xticks(rotation=45, ha='right', fontsize=10)
+        plt.yticks(fontsize=10)
+        plt.ylabel('Valeurs', fontsize=12)
+        plt.grid(True, linestyle='--', alpha=0.7)
         
-        # Ajout des annotations uniquement dans le triangle inférieur
-        for i in range(len(corr.columns)):
-            for j in range(len(corr.columns)):
-                if i > j:  # Triangle inférieur uniquement
-                    text = plt.text(j, i, f'{corr.iloc[i, j]:.2f}',
-                                  ha='center', va='center',
-                                  color='white' if abs(corr.iloc[i, j]) > 0.3 else 'black',
-                                  fontsize=9,
-                                  fontweight='bold')
-        plt.title('Matrice de corrélation des variables numériques', fontsize=14, pad=20)
+        ranges_str = [f"{col}: [{stats.loc['min', col]:.2g}, {stats.loc['max', col]:.2g}]" for col in group]
+        plt.title(f'Distribution des variables numériques (Groupe {idx+1})\n' + '\n'.join(ranges_str), 
+                 fontsize=12, pad=20)
+        
         plt.tight_layout()
         plt.show()
+        
+        print("\nStatistiques détaillées pour le groupe", idx+1)
+        for col in group:
+            print(f"\n{col}:")
+            print(f"  Moyenne: {stats.loc['mean', col]:.2g}")
+            print(f"  Écart-type: {stats.loc['std', col]:.2g}")
+            print(f"  Min: {stats.loc['min', col]:.2g}")
+            print(f"  Max: {stats.loc['max', col]:.2g}")
+            print(f"  Nombre de valeurs non-nulles: {numeric_df[col].count()}")
+
+def plot_data_quality_dashboard(df: pd.DataFrame, quality_report: Dict) -> None:
+    """
+    Crée un dashboard de visualisation de la qualité des données.
     
-    # Figure 3: Distribution des variables numériques avec meilleure gestion des échelles
-    if not numeric_df.empty:
-        # Calcul des statistiques pour chaque variable
-        stats = numeric_df.agg(['mean', 'std', 'min', 'max'])
-        
-        # Regroupement des variables par ordre de grandeur
-        ranges = (stats.loc['max'] - stats.loc['min']).abs()
-        
-        # Tri des colonnes par ordre de grandeur
-        sorted_columns = ranges.sort_values().index
-        
-        # Création de groupes de variables (maximum 5 variables par graphique)
-        column_groups = [sorted_columns[i:i+5] for i in range(0, len(sorted_columns), 5)]
-        
-        for idx, group in enumerate(column_groups):
-            plt.figure(figsize=(12, 6))
-            
-            # Création des boxplots pour ce groupe
-            data = [numeric_df[col].dropna() for col in group]
-            bp = plt.boxplot(data,
-                           labels=group,
-                           patch_artist=True,
-                           medianprops=dict(color="red", linewidth=2),
-                           flierprops=dict(marker='o', markerfacecolor='gray', markersize=4))
-            
-            # Coloration des boxplots
-            for patch in bp['boxes']:
-                patch.set_facecolor('#3498db')
-                patch.set_alpha(0.7)
-            
-            # Amélioration des labels
-            plt.xticks(rotation=45, ha='right', fontsize=10)
-            plt.yticks(fontsize=10)
-            plt.ylabel('Valeurs', fontsize=12)
-            plt.grid(True, linestyle='--', alpha=0.7)
-            
-            # Ajout des statistiques dans le titre
-            ranges_str = [f"{col}: [{stats.loc['min', col]:.2g}, {stats.loc['max', col]:.2g}]" for col in group]
-            plt.title(f'Distribution des variables numériques (Groupe {idx+1})\n' + '\n'.join(ranges_str), 
-                     fontsize=12, pad=20)
-            
-            plt.tight_layout()
-            plt.show()
-            
-            # Affichage des statistiques détaillées
-            print("\nStatistiques détaillées pour le groupe", idx+1)
-            for col in group:
-                print(f"\n{col}:")
-                print(f"  Moyenne: {stats.loc['mean', col]:.2g}")
-                print(f"  Écart-type: {stats.loc['std', col]:.2g}")
-                print(f"  Min: {stats.loc['min', col]:.2g}")
-                print(f"  Max: {stats.loc['max', col]:.2g}")
-                print(f"  Nombre de valeurs non-nulles: {numeric_df[col].count()}")
+    Args:
+        df: DataFrame à analyser
+        quality_report: Rapport de qualité des données
+    """
+    plt.style.use('default')
+    
+    _plot_type_distribution(df)
+    _plot_correlation_matrix(df.select_dtypes(include=[np.number]))
+    _plot_numeric_distributions(df.select_dtypes(include=[np.number]))
 
 def plot_categorical_analysis(df: pd.DataFrame, cat_distributions: Dict) -> None:
     """

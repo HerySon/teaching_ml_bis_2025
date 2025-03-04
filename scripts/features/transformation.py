@@ -221,12 +221,7 @@ def apply_pca_reduction(
         'n_components': pca.n_components_,
         'explained_variance_ratio': pca.explained_variance_ratio_.tolist(),
         'cumulative_variance_ratio': np.cumsum(pca.explained_variance_ratio_).tolist(),
-        'feature_importance': {
-            col: importance for col, importance in zip(
-                numeric_columns,
-                np.abs(pca.components_).mean(axis=0)
-            )
-        },
+        'feature_importance': dict(zip(numeric_columns, np.abs(pca.components_).mean(axis=0))),
         'n_samples_imputed': df[numeric_columns].isna().sum().sum()
     }
     

@@ -175,8 +175,8 @@ def plot_sampling_results(original_df: pd.DataFrame,
         labels = ['Original', 'Échantillon']
         
         plt.boxplot(data, labels=labels, patch_artist=True,
-                   medianprops=dict(color="red", linewidth=1.5),
-                   boxprops=dict(facecolor='#3498db', alpha=0.7))
+                   medianprops={"color": "red", "linewidth": 1.5},
+                   boxprops={"facecolor": "#3498db", "alpha": 0.7})
         
         plt.title(f'Distribution de {col}')
         plt.grid(True, linestyle='--', alpha=0.3)
