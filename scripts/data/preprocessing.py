@@ -1,6 +1,7 @@
-import pandas as pd
-import numpy as np
 from typing import Dict, Tuple, Optional, List
+
+import numpy as np
+import pandas as pd
 
 def handle_duplicates(df: pd.DataFrame, strategy: str = 'analyze') -> Tuple[pd.DataFrame, Dict]:
     """
@@ -32,21 +33,21 @@ def handle_duplicates(df: pd.DataFrame, strategy: str = 'analyze') -> Tuple[pd.D
         }
         return df, info
     
-    elif strategy == 'remove_all':
-        df_clean = df.drop_duplicates()
+    # Initialiser df_clean avant toute opération
+    df_clean = df.copy()
+    
+    if strategy == 'remove_all':
+        df_clean = df_clean.drop_duplicates()
         info['action_taken'] = 'removed_all_duplicates'
-        
     elif strategy == 'keep_first':
-        df_clean = df.drop_duplicates(keep='first')
+        df_clean = df_clean.drop_duplicates(keep='first')
         info['action_taken'] = 'kept_first_occurrence'
-        
     elif strategy == 'keep_last':
-        df_clean = df.drop_duplicates(keep='last')
+        df_clean = df_clean.drop_duplicates(keep='last')
         info['action_taken'] = 'kept_last_occurrence'
-        
     elif strategy == 'aggregate':
-        numeric_cols = df.select_dtypes(include=np.number).columns
-        categorical_cols = df.select_dtypes(exclude=np.number).columns
+        numeric_cols = df_clean.select_dtypes(include=np.number).columns
+        categorical_cols = df_clean.select_dtypes(exclude=np.number).columns
         
         agg_rules = {
             **{col: 'mean' for col in numeric_cols},
@@ -54,7 +55,7 @@ def handle_duplicates(df: pd.DataFrame, strategy: str = 'analyze') -> Tuple[pd.D
                for col in categorical_cols}
         }
         
-        df_clean = df.groupby(df.index).agg(agg_rules)
+        df_clean = df_clean.groupby(df_clean.index).agg(agg_rules)
         info['action_taken'] = 'aggregated_duplicates'
     
     info['final_shape'] = df_clean.shape
@@ -85,7 +86,7 @@ def process_categorical_columns(
     }
     
     categorical_columns = df.select_dtypes(include=['object', 'category']).columns
-    if not len(categorical_columns):
+    if not categorical_columns:
         return df, info
     
     n_unique = df[categorical_columns].nunique()
@@ -103,7 +104,7 @@ def process_categorical_columns(
     columns_to_drop = n_unique[n_unique > max_categories].index
     info['dropped_columns'].extend((col, 'too_many_categories') for col in columns_to_drop)
     
-    if len(columns_to_drop):
+    if columns_to_drop.any():
         df = df.drop(columns=columns_to_drop)
     
     return df, info 

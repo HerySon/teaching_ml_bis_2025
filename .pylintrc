@@ -22,6 +22,14 @@ disable=C0111,  # missing-docstring
         R0913,  # too-many-arguments
         R0914,  # too-many-locals
         W0621,  # redefined-outer-name
+        E0401,  # import-error (disabled because pylint can't find installed packages)
+        C0304,  # missing-final-newline
+        R0801,  # duplicate-code
+        W0611,  # unused-import
+        W0612,  # unused-variable
+        R1705,  # no-else-return
+        C0200,  # consider-using-enumerate
+        C0415   # import-outside-toplevel
 
 [FORMAT]
 # Maximum number of characters on a single line
