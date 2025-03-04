@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-
+ 
 def Classementcolonnes(data, ordinal_feature=['nutriscore_grade'], threshold=999):
     """
     Classe les colonnes d'un DataFrame et optimise les variables numériques.
