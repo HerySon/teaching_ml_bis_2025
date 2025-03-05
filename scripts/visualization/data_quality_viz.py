@@ -110,13 +110,21 @@ def plot_data_quality_dashboard(df: pd.DataFrame, quality_report: Dict) -> None:
     
     Args:
         df: DataFrame à analyser
-        quality_report: Rapport de qualité des données (non utilisé)
+        quality_report: Rapport de qualité des données
     """
     plt.style.use('default')
     
     _plot_type_distribution(df)
     _plot_correlation_matrix(df.select_dtypes(include=[np.number]))
     _plot_numeric_distributions(df.select_dtypes(include=[np.number]))
+    
+    # Utilisation du quality_report pour afficher des informations supplémentaires
+    print("\nRésumé de la qualité des données:")
+    print(f"Dimensions: {quality_report['dimensions']['rows']} lignes, {quality_report['dimensions']['columns']} colonnes")
+    print(f"Types de données: {', '.join(f'{k}: {v}' for k, v in quality_report['dtypes'].items())}")
+    print(f"Colonnes avec valeurs manquantes: {len(quality_report['missing_values']['columns_with_missing'])}")
+    if quality_report['quality_issues']['constant_columns']:
+        print(f"Colonnes constantes: {', '.join(quality_report['quality_issues']['constant_columns'])}")
 
 @unused
 def plot_categorical_analysis(df: pd.DataFrame, cat_distributions: Dict) -> None:
@@ -124,19 +132,25 @@ def plot_categorical_analysis(df: pd.DataFrame, cat_distributions: Dict) -> None
     Visualise l'analyse des variables catégorielles.
     
     Args:
-        df: DataFrame à analyser (non utilisé)
+        df: DataFrame à analyser
         cat_distributions: Résultats de l'analyse des distributions catégorielles
     """
+    # Utilisation de df pour calculer le pourcentage de données manquantes
+    total_rows = len(df)
+    
     for col, dist_info in cat_distributions.items():
         # Une figure par variable catégorielle
         plt.figure(figsize=(15, 6))
         
-        # Distribution des catégories
+        # Distribution des catégories avec pourcentage de données manquantes
         counts = pd.Series(dist_info['most_common'])
+        missing_count = df[col].isna().sum()
+        missing_pct = (missing_count / total_rows) * 100
+        
         plt.bar(range(len(counts)), counts.values, color='#3498db', alpha=0.7)
         plt.xticks(range(len(counts)), counts.index, rotation=45, ha='right', fontsize=10)
         plt.yticks(fontsize=10)
-        plt.title(f'Distribution des catégories - {col}', fontsize=14, pad=20)
+        plt.title(f'Distribution des catégories - {col}\n(Données manquantes: {missing_pct:.1f}%)', fontsize=14, pad=20)
         plt.ylabel('Nombre d\'occurrences', fontsize=12)
         plt.grid(True, linestyle='--', alpha=0.3)
         plt.tight_layout()
