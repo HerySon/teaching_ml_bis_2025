@@ -5,7 +5,7 @@ setup(
     version='1.0',
     description='Teaching project for data science & AI classes',
     author='Your Name',
-    packages=find_packages(),
+    packages=['scripts', 'scripts.data', 'scripts.features', 'scripts.models', 'scripts.visualization'],
     install_requires=[
         'numpy>=1.21.0',
         'pandas>=1.3.0',

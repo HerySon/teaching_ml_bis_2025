@@ -1,3 +1,3 @@
 """
-This module handles data loading and basic data operations.
+Data processing and analysis submodule
 """ 

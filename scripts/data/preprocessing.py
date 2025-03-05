@@ -77,7 +77,7 @@ def process_categorical_columns(
         ordinal_columns: Liste des colonnes ordinales
         
     Returns:
-        Tuple[pd.DataFrame, Dict]: DataFrame traité et informations sur les colonnes
+        Tuple[DataFrame, Dict]: DataFrame traité et informations sur les colonnes
     """
     info = {
         'categorical_ordinal': [],
@@ -86,7 +86,7 @@ def process_categorical_columns(
     }
     
     categorical_columns = df.select_dtypes(include=['object', 'category']).columns
-    if not categorical_columns:
+    if categorical_columns.empty:
         return df, info
     
     n_unique = df[categorical_columns].nunique()
@@ -104,7 +104,7 @@ def process_categorical_columns(
     columns_to_drop = n_unique[n_unique > max_categories].index
     info['dropped_columns'].extend((col, 'too_many_categories') for col in columns_to_drop)
     
-    if columns_to_drop.any():
+    if len(columns_to_drop) > 0:
         df = df.drop(columns=columns_to_drop)
     
     return df, info 
