@@ -150,9 +150,13 @@ def plot_categorical_analysis(df: pd.DataFrame, cat_distributions: Dict) -> None
         plt.bar(range(len(counts)), counts.values, color='#3498db', alpha=0.7)
         plt.xticks(range(len(counts)), counts.index, rotation=45, ha='right', fontsize=10)
         plt.yticks(fontsize=10)
-        title = f'Distribution des catégories - {col}\n'
-        title += f'(Données manquantes: {missing_pct:.1f}%)'
-        plt.title(title, fontsize=14, pad=20)
+        
+        # Construction du titre en deux lignes
+        main_title = f'Distribution des catégories - {col}'
+        subtitle = f'Données manquantes: {missing_pct:.1f}%'
+        plt.suptitle(main_title, fontsize=14, y=1.02)
+        plt.title(subtitle, fontsize=12, pad=20)
+        
         plt.ylabel('Nombre d\'occurrences', fontsize=12)
         plt.grid(True, linestyle='--', alpha=0.3)
         plt.tight_layout()
