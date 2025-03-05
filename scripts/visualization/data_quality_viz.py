@@ -120,7 +120,8 @@ def plot_data_quality_dashboard(df: pd.DataFrame, quality_report: Dict) -> None:
     
     # Utilisation du quality_report pour afficher des informations supplémentaires
     print("\nRésumé de la qualité des données:")
-    print(f"Dimensions: {quality_report['dimensions']['rows']} lignes, {quality_report['dimensions']['columns']} colonnes")
+    dims = quality_report['dimensions']
+    print(f"Dimensions: {dims['rows']} lignes, {dims['columns']} colonnes")
     print(f"Types de données: {', '.join(f'{k}: {v}' for k, v in quality_report['dtypes'].items())}")
     print(f"Colonnes avec valeurs manquantes: {len(quality_report['missing_values']['columns_with_missing'])}")
     if quality_report['quality_issues']['constant_columns']:
