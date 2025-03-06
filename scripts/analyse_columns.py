@@ -36,7 +36,8 @@ def analyse_columns(df: pd.DataFrame, category_threshold: int = 10) \
                 filtered_columns["non_ordinal_categorical"].append(col)
 
         # Downcasting des variables numériques
-        df.loc[:, filtered_columns["numeric"]] = df[filtered_columns["numeric"]].apply(pd.to_numeric, downcast="float")
+        df.loc[:, filtered_columns["numeric"]] = df[filtered_columns["numeric"]].apply(
+            pd.to_numeric, downcast="float")
 
-    return filtered_columns, df[filtered_columns["numeric"]], df[filtered_columns["ordinal_categorical"]], df[
-        filtered_columns["non_ordinal_categorical"]]
+    return (filtered_columns, df[filtered_columns["numeric"]],
+            df[filtered_columns["ordinal_categorical"]], df[filtered_columns["non_ordinal_categorical"]])
