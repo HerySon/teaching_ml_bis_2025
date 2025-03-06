@@ -1,7 +1,3 @@
-from sklearn.impute import KNNImputer
-import pandas as pd
-import numpy as np
-
 def nettoyagedesdonneep1(data, to_delete=[
     "code", "url", "creator", "created_t", "created_datetime",
     "last_modified_t", "last_modified_datetime", "packaging", "packaging_tags",
