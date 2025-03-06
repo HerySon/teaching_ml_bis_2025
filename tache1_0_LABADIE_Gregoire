@@ -1,0 +1,91 @@
+from sklearn.impute import KNNImputer
+import pandas as pd
+import numpy as np
+
+def nettoyagedesdonneep1(data, to_delete=[
+    "code", "url", "creator", "created_t", "created_datetime",
+    "last_modified_t", "last_modified_datetime", "packaging", "packaging_tags",
+    "brands_tags", "categories_tags", "categories_fr",
+    "origins_tags", "manufacturing_places", "manufacturing_places_tags",
+    "labels_tags", "labels_fr", "emb_codes", "emb_codes_tags",
+    "first_packaging_code_geo", "cities", "cities_tags", "purchase_places",
+    "countries_tags", "countries_fr", "image_ingredients_url",
+    "image_ingredients_small_url", "image_nutrition_url", "image_nutrition_small_url",
+    "image_small_url", "image_url", "last_updated_t", "last_updated_datetime", "last_modified_by"]
+    , threshold=90):
+
+    """
+    Nettoie le dataset en supprimant les colonnes inutiles et celles ayant trop de valeurs manquantes.
+
+    Paramètres :
+    - data (pd.DataFrame) : Le DataFrame à nettoyer.
+    - to_delete (list) : Liste des colonnes à supprimer manuellement.
+    - threshold (int) : Pourcentage maximal de valeurs manquantes autorisé par colonne.
+
+    Retourne :
+    - pd.DataFrame : Le DataFrame nettoyé.
+    """
+
+    # Drop des colonnes à spécifier ou colonnes par défaut
+    data = data.drop(columns=[col for col in to_delete if col in data.columns], errors='ignore')
+    # Drop des colonnes qui ont trop de NAN (fixé par l'user, par défaut 90%)
+    percent_missing = data.isnull().sum() * 100 / len(data)
+    colonnes_a_supprimer = percent_missing[percent_missing > threshold].index.tolist()
+    data = data.drop(columns=colonnes_a_supprimer)
+
+    return data
+
+def nettoyagedesdonneep2(data, method_mapping=None, knn_k=5, fixed_values=None, dominance_threshold=0.1, keep_columns=None):
+    """
+    Traitement des colonnes qui ont entre 40 et le max de nan (à defaut 90) (les + de 90% on déjà été traité dans la première fonction)
+    
+    Paramètres :
+    - data (pd.DataFrame) : Le DataFrame à nettoyer.
+    - to_delete (list) : Liste des colonnes à supprimer manuellement.
+    - threshold (int) : Pourcentage maximal de valeurs manquantes autorisé par colonne.
+    """
+    method_mapping = method_mapping or {}
+    fixed_values = fixed_values or {}
+    keep_columns = set(keep_columns or [])
+    modified_columns = []
+
+    for col in data.columns:
+        if col in keep_columns:
+            continue
+
+        missing_ratio = data[col].isnull().mean()
+
+        if missing_ratio < 0.4 or missing_ratio > 0.9:
+            continue
+
+        method = method_mapping.get(col, "median" if data[col].dtype in [np.float64, np.int64] else "mode")
+
+        if method == "knn":
+            if data[col].notnull().sum() < knn_k + 2:
+                method = "median"
+        if method == "median" and data[col].dtype in [np.float64, np.int64]:
+            data[col].fillna(data[col].median(), inplace=True)
+            modified_columns.append((col, "median"))
+        elif method == "mean" and data[col].dtype in [np.float64, np.int64]:
+            data[col].fillna(data[col].mean(), inplace=True)
+            modified_columns.append((col, "mean"))
+        elif method == "fixed_value":
+            data[col].fillna(fixed_values.get(col, 0), inplace=True)
+            modified_columns.append((col, "fixed_value"))
+        elif method == "mode":
+            most_frequent = data[col].mode()
+            if not most_frequent.empty and (most_frequent.value_counts().iloc[0] / data[col].notnull().sum()) >= dominance_threshold:
+                data[col].fillna(most_frequent[0], inplace=True)
+                modified_columns.append((col, "mode"))
+            else:
+                data[col].fillna("Autre", inplace=True)
+                modified_columns.append((col, "mode"))
+
+    if "knn" in method_mapping.values():
+        knn_imputer = KNNImputer(n_neighbors=knn_k)
+        num_cols = [col for col, method in method_mapping.items() if method == "knn" and data[col].dtype in [np.float64, np.int64] and col not in keep_columns]
+        if num_cols:
+            data[num_cols] = knn_imputer.fit_transform(data[num_cols])
+            modified_columns.extend([(col, "knn") for col in num_cols])
+
+    return data, modified_columns
