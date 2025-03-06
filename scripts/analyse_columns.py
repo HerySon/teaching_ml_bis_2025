@@ -1,4 +1,4 @@
-"""Module providing a function to analyse the columns of a DataFrame and classify them into three categories"""
+"""Module providing a function to analyse and classify the columns of a DataFrame"""
 
 import pandas as pd
 
@@ -41,5 +41,8 @@ def analyse_columns(df: pd.DataFrame, category_threshold: int = 10) \
         df.loc[:, filtered_columns["numeric"]] = df[filtered_columns["numeric"]].apply(
             pd.to_numeric, downcast="float")
 
-    return (filtered_columns, df[filtered_columns["numeric"]], df[filtered_columns["ordinal_categorical"]],
-            df[filtered_columns["non_ordinal_categorical"]])
+    return (
+        filtered_columns,
+        df[filtered_columns["numeric"]],
+        df[filtered_columns["ordinal_categorical"]],
+        df[filtered_columns["non_ordinal_categorical"]])
