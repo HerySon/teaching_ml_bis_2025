@@ -49,3 +49,17 @@ models/*.pkl
 documentation/
 *.md
 !README.md
+
+# Personal IDE configurations
+.vscode/
+.idea/
+
+# Build artifacts
+clustering_OFF.egg-info/
+__pycache__/
+.pytest_cache/
+
+# Personal config files
+.pylintrc
+pytest.ini
+setup.cfg
