@@ -8,7 +8,6 @@ Contient la classe `Tache0` permettant de :
 """
 
 import pandas as pd
-import setuptools
 
 
 class Tache0:
