@@ -88,7 +88,8 @@ class Tache0:
         """
         categorical_cols = self.df.select_dtypes(include=["object"]).columns
         return self.df[
-            [col for col in categorical_cols if col not in ordinal_cols and "date" not in col.lower()]
+            [col for col in categorical_cols if col not in ordinal_cols/
+             and "date" not in col.lower()]
         ]
 
     def downcast_numerics(self):
@@ -99,7 +100,8 @@ class Tache0:
             DataFrame : Le DataFrame avec les colonnes numériques optimisées.
         """
         for col in self.df.select_dtypes(include=["int64", "float64"]).columns:
-            self._df[col] = pd.to_numeric(self.df[col], downcast="integer") if self.df[col].dtype == "int64" else pd.to_numeric(self.df[col], downcast="float")
+            self._df[col] = pd.to_numeric(self.df[col], downcast="integer")/
+            if self.df[col].dtype == "int64" else pd.to_numeric(self.df[col], downcast="float")
         return self.df
 
     def numbers_variables(self, threshold):
