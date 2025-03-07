@@ -106,7 +106,8 @@ class Tache0:
 
     def numbers_variables(self, threshold):
         """
-        Sélectionne les colonnes catégorielles ayant un nombre de catégories unique inférieur ou égal à `threshold`.
+        Sélectionne les colonnes catégorielles\
+        ayant un nombre de catégories unique inférieur ou égal à `threshold`.
 
         Arguments :
             threshold (int) : Nombre maximum de catégories uniques autorisé.
