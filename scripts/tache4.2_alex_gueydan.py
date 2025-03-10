@@ -13,8 +13,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from tache1_alex_gueydan import clean_data_set
-from scipy.stats import chi2_contingency, shapiro
+
+try:
+    from tache1_alex_gueydan import clean_data_set
+    from scipy.stats import chi2_contingency, shapiro
+except ImportError as e:
+    print(f"Erreur d'import : {e}")
+    clean_data_set = None
 
 
 class Tache42:
@@ -31,7 +36,7 @@ class Tache42:
     def __init__(self):
         """
         Initialise la classe et charge un échantillon du dataset Open Food Facts.
-        
+
         Attributs :
             df (DataFrame) : Un DataFrame contenant l'échantillon du dataset.
         """
@@ -40,65 +45,60 @@ class Tache42:
         pd.set_option("display.max_rows", None)
 
         # Chargement du dataset
-        self.df = clean_data_set()
+        if clean_data_set:
+            self.df = clean_data_set()
+        else:
+            self.df = pd.DataFrame()  # Dataset vide en cas d'erreur d'import
 
     def heatmap(self, threshold):
         """
-        Affiche une heatmap des corrélations entre les variables du dataset,
-        en filtrant celles qui sont supérieures ou inférieures au seuil spécifié.
+        Affiche une heatmap des corrélations entre les variables du dataset.
 
         Arguments :
-            threshold (float) : Le seuil de corrélation pour filtrer les valeurs.
-                                 Les corrélations supérieures ou inférieures à ce seuil seront affichées.
+            threshold (float) : Seuil de corrélation pour filtrer les valeurs affichées.
         """
-        # Calcul de la matrice de corrélation pour les colonnes numériques
-        numeric_cols = self.df.select_dtypes(include=['int64', 'float64'])
+        numeric_cols = self.df.select_dtypes(include=["int64", "float64"])
         correlation_matrix = numeric_cols.corr().abs()
 
-        # Appliquer le seuil pour filtrer les corrélations
         correlation_matrix = correlation_matrix[(correlation_matrix.abs() > threshold)]
 
-        # Créer la heatmap avec la matrice filtrée
         plt.figure(figsize=(10, 8))
-        sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0, linewidths=0.5)
-        plt.title(f'Correlation Heatmap with threshold {threshold}')
+        sns.heatmap(
+            correlation_matrix, annot=True, cmap="coolwarm", center=0, linewidths=0.5
+        )
+        plt.title(f"Correlation Heatmap (threshold {threshold})")
         plt.show()
 
     def spearman_correlation(self, threshold):
         """
-        Calcule la corrélation de Spearman entre toutes les variables.
-        Cette méthode permet de capturer des relations monotones non linéaires.
+        Calcule et affiche la corrélation de Spearman entre toutes les variables.
 
         Arguments :
-            threshold (float) : Le seuil de corrélation pour filtrer les valeurs.
-                                 Les corrélations supérieures à ce seuil seront affichées.
-
-        Retour :
-            spearman_corr (DataFrame) : La matrice de corrélation de Spearman.
+            threshold (float) : Seuil de corrélation pour filtrer les valeurs affichées.
         """
-        # Calcul de la matrice de corrélation de Spearman
-        numeric_cols = self.df.select_dtypes(include=['int64', 'float64'])
+        numeric_cols = self.df.select_dtypes(include=["int64", "float64"])
         correlation_matrix = numeric_cols.corr(method="spearman").abs()
 
-        # Appliquer le seuil pour filtrer les corrélations
-        correlation_matrix = correlation_matrix[(correlation_matrix.abs() > threshold) & (correlation_matrix != 1)]
+        correlation_matrix = correlation_matrix[
+            (correlation_matrix.abs() > threshold) & (correlation_matrix != 1)
+        ]
 
-        # Créer la heatmap avec la matrice filtrée
         plt.figure(figsize=(10, 8))
-        sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0, linewidths=0.5)
-        plt.title(f'Correlation Heatmap with threshold {threshold}')
+        sns.heatmap(
+            correlation_matrix, annot=True, cmap="coolwarm", center=0, linewidths=0.5
+        )
+        plt.title(f"Spearman Correlation Heatmap (threshold {threshold})")
         plt.show()
 
-    def chi2(self, colonne1, colonne2):
+    def chi2_test(self, colonne1, colonne2):
         """
         Effectue un test du chi-carré pour vérifier l'indépendance entre deux variables catégorielles.
 
         Arguments :
-            colonne1 (str) : Le nom de la première variable.
-            colonne2 (str) : Le nom de la seconde variable.
+            colonne1 (str) : Nom de la première variable.
+            colonne2 (str) : Nom de la seconde variable.
         """
-        # Effectuer le test Chi-Carré
-        chi2_stat, p_value, dof, expected = chi2_contingency(pd.crosstab(self.df[colonne1], self.df[colonne2]))
+        _, p_value, _, _ = chi2_contingency(pd.crosstab(self.df[colonne1], self.df[colonne2]))
 
         if p_value < 0.05:
             print(f"Les variables {colonne1} et {colonne2} sont dépendantes.")
@@ -110,18 +110,16 @@ class Tache42:
         Identifie les variables ayant une corrélation élevée et qui pourraient être redondantes.
 
         Arguments :
-            threshold (float) : Le seuil de corrélation pour identifier les variables redondantes.
+            threshold (float) : Seuil de corrélation pour identifier les variables redondantes.
 
         Retour :
             redundant_features (list) : Liste des variables redondantes.
         """
-        numeric_cols = self.df.select_dtypes(include=['int64', 'float64'])
+        numeric_cols = self.df.select_dtypes(include=["int64", "float64"])
         corr_matrix = numeric_cols.corr().abs()
 
-        # Créer une version de la matrice sans la diagonale (corrélation avec soi-même)
         np.fill_diagonal(corr_matrix.values, 0)
 
-        # Identifier les colonnes ayant une corrélation supérieure au seuil
         redundant_features = [
             column for column in corr_matrix.columns if any(corr_matrix[column] > threshold)
         ]
@@ -135,36 +133,41 @@ class Tache42:
         Affiche une relation polynomiale entre deux variables.
 
         Arguments :
-            x_col (str) : Le nom de la colonne sur l'axe des abscisses.
-            y_col (str) : Le nom de la colonne sur l'axe des ordonnées.
-            degree (int) : Le degré du polynôme à ajuster.
+            x_col (str) : Colonne de l'axe des abscisses.
+            y_col (str) : Colonne de l'axe des ordonnées.
+            degree (int) : Degré du polynôme à ajuster.
         """
         plt.figure(figsize=(8, 5))
-        sns.regplot(x=self.df[x_col], y=self.df[y_col], order=degree, scatter_kws={"s": 10}, line_kws={"color": "red"})
+        sns.regplot(
+            x=self.df[x_col],
+            y=self.df[y_col],
+            order=degree,
+            scatter_kws={"s": 10},
+            line_kws={"color": "red"},
+        )
         plt.title(f"Relation polynomiale (degré {degree}) entre {x_col} et {y_col}")
         plt.show()
 
     def check_normality(self, column):
         """
-        Vérifie si une variable suit une distribution normale à l'aide du test de Shapiro-Wilk.
+        Vérifie si une variable suit une distribution normale avec le test de Shapiro-Wilk.
 
         Arguments :
-            column (str) : Le nom de la colonne à tester.
+            column (str) : Nom de la colonne à tester.
         """
-        stat, p_value = shapiro(self.df[column].dropna())
+        _, p_value = shapiro(self.df[column].dropna())
+
         if p_value > 0.05:
             print(f"La variable {column} suit une distribution normale.")
         else:
             print(f"La variable {column} ne suit pas une distribution normale.")
 
 
-
 # 🔹 Utilisation :
 tache = Tache42()
-#tache.heatmap(0.7)
+# tache.heatmap(0.7)
 # tache.spearman_correlation(0.3)
-#tache.find_highly_correlated_features(0.7)
-#tache.plot_polynomial_relationship("sodium_100g", "energy_100g", degree=2)
-# tache.test_polynomial_features(["sodium_100g", "fat_100g"], "energy_100g", degree=2)
-# tache.find_highly_correlated_features(threshold=0.9)
-tache.decision_tree_analysis("energy-kcal_100g")
+# tache.find_highly_correlated_features(0.7)
+# tache.plot_polynomial_relationship("sodium_100g", "energy_100g", degree=2)
+# tache.chi2_test("nutrition_grade", "nova_group")
+# tache.check_normality("energy_100g")
