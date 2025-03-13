@@ -31,6 +31,7 @@ class Tache5:
         self.kmin = 0
         self.kmax = 0
         self.metric = None
+        self.data = None
 
     def remove_irrelevant_columns(self):
         """
@@ -138,11 +139,11 @@ class Tache5:
 
         # Prétraitement des données
         data_100g = self.pre_processing()
-        self.df = data_100g
+        self.data100 = data_100g
 
         # Calcul des bornes pour la détection des outliers
-        Q1 = self.df.quantile(0.25)
-        Q3 = self.df.quantile(0.75)
+        Q1 = self.data100.quantile(0.25)
+        Q3 = self.data100.quantile(0.75)
         IQR = Q3 - Q1
 
         # Définir les bornes inférieures et supérieures pour chaque colonne
@@ -150,79 +151,42 @@ class Tache5:
         upper_bound = Q3 + threshold * IQR
 
         # Filtrer les données en supprimant les valeurs anormales (outliers)
-        self.df = self.df[~((self.df < lower_bound) | (self.df > upper_bound)).any(axis=1)]
+        self.data100 = self.data100[~((self.data100 < lower_bound) | (self.data100 > upper_bound)).any(axis=1)]
 
         # Standardisation des données
         scaler = StandardScaler()
-        scaled_data_100g = scaler.fit_transform(self.df)
+        scaled_data_100g = scaler.fit_transform(self.data100)
 
         # Appliquer KMeans avec une initialisation multiple des centroids (n_init)
-        kmeans = KMeans(n_clusters=n_clusters, random_state=25, algorithm="elkan")
+        kmeans = KMeans(n_clusters=n_clusters, random_state=25)
 
         # Assigner les clusters
-        self.df["cluster"] = kmeans.fit_predict(scaled_data_100g)
+        self.data100.loc[:, "cluster"] = kmeans.fit_predict(scaled_data_100g)
 
         # Vérification de l'inertie et des résultats
         print("Inertie du modèle K-Means : ", kmeans.inertia_)
 
         # Vérifier les labels et la distribution des points par cluster
-        print(f"Cluster labels: {sorted(set(self.df['cluster']))}")
-        print(f"Distribution des points par cluster: \n{self.df['cluster'].value_counts()}")
+        print(f"Cluster labels: {sorted(set(self.data100['cluster']))}")
+        print(f"Distribution des points par cluster: \n{self.data100['cluster'].value_counts()}")
 
-        return self.df
+        return self.data100
     
-    def find_clusters_nb(self, method, kmeans_kwargs, kmax, kmin=2):
-        """
-        Recherche du nombre optimal de clusters en utilisant soit la méthode du coude
-        (Elbow), soit la méthode du coefficient de silhouette (Silhouette).
-        
-        Arguments :
-        - method (str) : Méthode à utiliser ('elbow' ou 'silhouette').
-        - kmeans_kwargs (dict) : Dictionnaire des arguments pour KMeans.
-        - kmax (int) : Nombre maximal de clusters à tester.
-        - kmin (int) : Nombre minimal de clusters à tester (par défaut 2).
-        
-        Retourne :
-        - self.metric (list) : Liste des valeurs de la métrique pour chaque nombre de clusters.
-        """
+    def find_clusters_elbow(self):
+        inertias = []
 
-        # Sélectionner uniquement les colonnes contenant '_100g'
-        # Standardisation des données
         scaler = StandardScaler()
-        scaled_data_100g = scaler.fit_transform(self.df)
+        scaled_data_100g = scaler.fit_transform(self.data100)
 
-        # Paramètres pour la recherche du nombre optimal de clusters
-        self.kmax = kmax
-        self.kmin = kmin
-        self.method = method
-        self.metric = []
+        for i in range(1,11):
+            kmeans = KMeans(n_clusters=i)
+            kmeans.fit(scaled_data_100g)
+            inertias.append(kmeans.inertia_)
 
-        if self.method == 'elbow':
-            self.metric_name = "Inertia"
-            for k in range(self.kmin, self.kmax + 1):
-                kmeans = KMeans(n_clusters=k, **kmeans_kwargs).fit(scaled_data_100g)
-                self.metric.append(kmeans.inertia_)
-            return self.metric
-
-        elif self.method == 'silhouette':
-            self.metric_name = "Silhouette Coefficient"
-            for k in range(self.kmin, self.kmax + 1):
-                kmeans = KMeans(n_clusters=k, **kmeans_kwargs).fit(scaled_data_100g)
-                self.metric.append(silhouette_score(scaled_data_100g, kmeans.labels_))
-            return self.metric
-
-
-    def plot_metric(self):
-        """
-        Trace la courbe de la métrique en fonction du nombre de clusters.
-        
-        Utilisé pour visualiser la méthode du coude ou du coefficient de silhouette.
-        """
-        plt.plot(range(self.kmin, self.kmax + 1), self.metric)
-        plt.xticks(range(self.kmin, self.kmax + 1))
-        plt.xlabel("Number of clusters")
-        plt.ylabel(f"{self.metric_name}")
-        plt.title(f"Search for best k with {self.method} method")
+        plt.plot(range(1,11), inertias, marker='o')
+        plt.title('Elbow method')
+        plt.xlabel('Number of clusters')
+        plt.ylabel('Inertia')
         plt.show()
 
     def plot_kmeans_clusters(self, threshold=1.5):
@@ -234,8 +198,9 @@ class Tache5:
         """
 
         # Calcul des quartiles et de l'IQR pour chaque colonne
-        Q1 = self.df.quantile(0.25)
-        Q3 = self.df.quantile(0.75)
+
+        Q1 = self.data100.quantile(0.25)
+        Q3 = self.data100.quantile(0.75)
         IQR = Q3 - Q1
 
         # Définir les bornes inférieures et supérieures pour chaque colonne
@@ -243,24 +208,24 @@ class Tache5:
         upper_bound = Q3 + threshold * IQR
 
         # Filtrer les données pour éliminer les outliers
-        self.df = self.df[~((self.df < lower_bound) | (self.df > upper_bound)).any(axis=1)]
+        self.data100 = self.data100[~((self.data100 < lower_bound) | (self.data100 > upper_bound)).any(axis=1)]
 
         # Standardisation des données
         scaler = StandardScaler()
-        scaled_data_100g = scaler.fit_transform(self.df)
+        scaled_data_100g = scaler.fit_transform(self.data100)
 
         # Appliquer l'ACP pour réduire les dimensions à 2
-        pca = PCA(n_components=2)
+        pca = PCA(n_components=5)
         pca_scores = pca.fit_transform(scaled_data_100g)  # Projection des données dans l'espace 2D
 
         # Ajouter les résultats de l'ACP aux données pour les utiliser dans le graphique
-        self.df['pca1'] = pca_scores[:, 0]
-        self.df['pca2'] = pca_scores[:, 1]
+        self.data100['pca1'] = pca_scores[:, 0]
+        self.data100['pca2'] = pca_scores[:, 1]
 
         # Créer le graphique
         plt.figure(figsize=(8, 6))
 
-        sns.scatterplot(x=self.df['pca1'], y=self.df['pca2'], hue=self.df["cluster"], palette="Set1", alpha=0.7)
+        sns.scatterplot(x=self.data100['pca1'], y=self.data100['pca2'], hue=self.data100["cluster"], palette="Set1", alpha=0.7)
 
         # Ajouter des lignes de référence pour l'axe des X et Y
         plt.axhline(0, color='grey', linestyle='--', linewidth=0.5)
@@ -273,10 +238,9 @@ class Tache5:
         plt.show()   
 
 
-tache = Tache5()
-tache.remove_irrelevant_columns()
-tache.remove_high_nan_columns()
-tache.kmeans(4)
-tache.find_clusters_nb('elbow', kmeans_kwargs = {"init":"k-means++", "algorithm":"lloyd", "random_state":25}, kmax=10, kmin=2)
-tache.plot_metric()
-tache.plot_kmeans_clusters()
+# tache = Tache5()
+# tache.remove_irrelevant_columns()
+# tache.remove_high_nan_columns()
+# tache.kmeans(2)
+# tache.find_clusters_elbow()
+# tache.plot_kmeans_clusters()
