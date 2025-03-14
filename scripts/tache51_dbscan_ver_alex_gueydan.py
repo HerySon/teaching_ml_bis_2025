@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.cluster import DBSCAN
+from sklearn.manifold import TSNE
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
@@ -127,28 +128,35 @@ class Tache51:
         self.data100 = self.pre_processing()
 
         # Suppression des outliers avec IQR
-        Q1 = self.data100.quantile(0.25)
-        Q3 = self.data100.quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - threshold * IQR
-        upper_bound = Q3 + threshold * IQR
+        # Q1 = self.data100.quantile(0.25)
+        # Q3 = self.data100.quantile(0.75)
+        # IQR = Q3 - Q1
+        # lower_bound = Q1 - threshold * IQR
+        # upper_bound = Q3 + threshold * IQR
 
-        self.data100 = self.data100[~((self.data100 < lower_bound) | (self.data100 > upper_bound)).any(axis=1)].reset_index(drop=True)
+        # self.data100 = self.data100[~((self.data100 < lower_bound) | (self.data100 > upper_bound)).any(axis=1)].reset_index(drop=True)
 
         # Standardisation des données
         scaler = StandardScaler()
         scaled_data_100g = scaler.fit_transform(self.data100)
 
-        # Appliquer DBSCAN
-        dbscan = DBSCAN(eps=eps, min_samples=min_samples, metric='manhattan')
-        cluster_labels = dbscan.fit_predict(scaled_data_100g)
+        # Appliquer t-SNE pour réduire à 2D
+        tsne = TSNE(n_components=2, perplexity=30, random_state=42)
+        X_tsne = tsne.fit_transform(scaled_data_100g)  # Données standardisées
 
-        # Vérification des dimensions
-        print(f"Taille de self.data100 : {len(self.data100)}")
-        print(f"Taille de clusters : {len(cluster_labels)}")
+        # Appliquer DBSCAN sur les résultats de t-SNE
+        dbscan = DBSCAN(eps=2.5, min_samples=30, metric="euclidean")
+        clusters = dbscan.fit_predict(X_tsne)
 
         # Ajouter les clusters au DataFrame
-        self.data100["cluster"] = cluster_labels
+        self.data100["tsne1"], self.data100["tsne2"] = X_tsne[:, 0], X_tsne[:, 1]
+        self.data100["cluster"] = clusters
+
+        # Visualisation des clusters après t-SNE + DBSCAN
+        plt.figure(figsize=(10, 6))
+        sns.scatterplot(x=self.data100["tsne1"], y=self.data100["tsne2"], hue=self.data100["cluster"], palette="viridis")
+        plt.title("Clusters DBSCAN après t-SNE")
+        plt.show()
 
     def get_kdist_plot(self, k, radius_nbrs=1.0):
 
@@ -208,10 +216,48 @@ class Tache51:
         # Vérification du nombre de points considérés comme bruit (-1)
         print("Nombre de points considérés comme bruit (-1) :", (self.data100["cluster"] == -1).sum())
 
+    def apply_tsne_and_plot(self, perplexity=30, learning_rate=200, n_iter=1000):
+        """
+        Applique t-SNE aux données standardisées et visualise les clusters détectés par DBSCAN.
+        """
+
+        if "cluster" not in self.data100.columns:
+            print("Erreur : DBSCAN doit être appliqué avant t-SNE.")
+            return
+        
+        # On ignore la colonne des clusters pour t-SNE
+        features = self.data100.drop(columns=["cluster"])
+
+        # Appliquer t-SNE pour réduction à 2D
+        tsne = TSNE(n_components=2, perplexity=perplexity, learning_rate=learning_rate, n_iter=n_iter, random_state=42)
+        tsne_results = tsne.fit_transform(features)
+
+        # Ajouter les colonnes t-SNE dans le DataFrame
+        self.data100["tsne1"] = tsne_results[:, 0]
+        self.data100["tsne2"] = tsne_results[:, 1]
+
+        # 🔹 **Visualisation avec seaborn**
+        plt.figure(figsize=(10, 6))
+        sns.scatterplot(
+            x=self.data100["tsne1"], 
+            y=self.data100["tsne2"], 
+            hue=self.data100["cluster"], 
+            palette="tab10",  # Palette de couleurs pour mieux voir les clusters
+            alpha=0.7
+        )
+        
+        plt.title("Visualisation des Clusters DBSCAN avec t-SNE")
+        plt.xlabel("t-SNE Dimension 1")
+        plt.ylabel("t-SNE Dimension 2")
+        plt.legend(title="Cluster", loc="upper right", bbox_to_anchor=(1.2, 1))
+        plt.show()
+
 # Exemple d'utilisation :
 dbscan = Tache51()
 dbscan.remove_irrelevant_columns()
 dbscan.remove_high_nan_columns()
-clusters = dbscan.apply_dbscan(eps=1.2, min_samples=80)
+clusters = dbscan.apply_dbscan(eps=1, min_samples=30)
+dbscan.apply_tsne_and_plot()
 # dbscan.get_kdist_plot(40)
-dbscan.visualize_clusters()
+# dbscan.visualize_clusters()
+
