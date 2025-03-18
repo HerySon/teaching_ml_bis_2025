@@ -1,17 +1,27 @@
-#Machine Learning Open Foods Facts - Alex Gueydan 25 ©
-#Import de toutes les librairies
+"""
+Module pour le nettoyage du dataset Open Food Facts.
+
+Contient la classe `Tache1` permettant de :
+- Supprimer les variables non pertinentes pour l'analyse.
+- Gérer les variables ayant trop de valeurs manquantes.
+- Imputer les valeurs manquantes pour certaines variables.
+- Extraire des motifs spécifiques (par exemple, les quantités dans `serving_size`).
+- Traiter les variables présentant des erreurs.
+"""
+
 import pandas as pd
 import re
 from sklearn.impute import KNNImputer
-from sklearn.preprocessing import LabelEncoder
 
 
 class Tache1:
     """
-    Classe permettant de manipuler et traiter un dataset Open Food Facts.
-    Elle inclut des méthodes pour sélectionner des colonnes numériques, ordinales et non ordinales,
-    effectuer des downcasts pour optimiser la mémoire et filtrer les variables en fonction du nombre
-    de catégories uniques.
+    Classe permettant de nettoyer et prétraiter un dataset Open Food Facts.
+    Elle inclut des méthodes pour :
+    - Supprimer les variables non pertinentes.
+    - Gérer les valeurs manquantes en imputant ou supprimant.
+    - Extraire des informations spécifiques dans des variables comme `serving_size`.
+    - Traiter les erreurs dans certaines variables.
     """
 
     def __init__(self):
@@ -22,19 +32,25 @@ class Tache1:
         Attributs :
             df (DataFrame): Un DataFrame Pandas contenant l'échantillon du dataset.
         """
-        #Forcage de pandas a afficher autant de caractère qu'il peut sur une ligne
+        # Forçage de pandas à afficher autant de caractères qu'il peut sur une ligne
         pd.set_option("display.max_columns", None)
 
-        #Meme chose avec le nombre de lignes
+        # Même chose avec le nombre de lignes
         pd.set_option("display.max_rows", None)
 
-        #Chargement du dataset, en prenant un échantillon de 100000 lignes pour ne pas trop surcharger
-        self.df = pd.read_csv("datasets/en.openfoodfacts.org.products.csv", sep="\t", on_bad_lines='skip', nrows=10000, low_memory=False)
+        # Chargement du dataset, en prenant un échantillon de 10 000 lignes pour ne pas trop surcharger
+        self.df = pd.read_csv(
+            "datasets/en.openfoodfacts.org.products.csv",
+            sep="\t",
+            on_bad_lines="skip",
+            nrows=10000,
+            low_memory=False
+        )
 
     def remove_irrelevant_columns(self):
         """
         Supprime les colonnes non pertinentes pour l'analyse.
-        
+
         Retour :
             pd.DataFrame : Le DataFrame nettoyé.
         """
@@ -52,7 +68,7 @@ class Tache1:
 
         self.df.drop(columns=[col for col in columns_to_drop if col in self.df.columns], errors='ignore', inplace=True)
         return self.df
-    
+
     def remove_duplicates(self):
         """
         Supprime les doublons en considérant toutes les colonnes.
@@ -61,9 +77,8 @@ class Tache1:
             pd.DataFrame : Le DataFrame sans doublons.
         """
         self.df.drop_duplicates(keep="first", inplace=True)
-        
         return self.df
-    
+
     def remove_high_nan_columns(self, threshold=90):
         """
         Supprime les colonnes ayant un pourcentage de valeurs manquantes supérieur au seuil.
@@ -82,29 +97,27 @@ class Tache1:
 
         # Suppression des colonnes
         self.df.drop(columns=cols_to_remove, inplace=True)
-        
         return self.df
-    
+
     def get_column_count(self):
         """Retourne le nombre total de colonnes du DataFrame."""
         return self.df.shape[1]
-    
+
     def clean_column(self, nom_colonne):
         """
         Nettoie la colonne 'serving_size' :
         - Extrait la quantité principale en grammes ou millilitres.
         - Convertit les unités en valeurs standardisées.
         - Supprime les valeurs aberrantes.
-        
+
         Retour :
             pd.DataFrame : Dataset avec une colonne 'serving_size_clean' nettoyée.
         """
-
-        # Expression régulière pour détecter la quantité et l'unité, c'est pour detecter les g, kg, ml, l etc.
+        # Expression régulière pour détecter la quantité et l'unité
+        # Permet de détecter les g, kg, ml, l, etc.
         pattern = r'(\d+[\.,]?\d*)\s*(g|kg|kilogram|kilograms|l|litre|litres|cl|ml)'
 
         def extract_serving(value):
-
             # Trouver tous les nombres suivis d'unités dans la colonne
             matches = re.findall(pattern, str(value))
             if not matches:
@@ -112,7 +125,6 @@ class Tache1:
 
             # Prendre le premier nombre trouvé
             quantity, unit = matches[0]
-            print(matches)
 
             # Remplacer les virgules par des points et convertir en float
             quantity = quantity.replace(",", ".")
@@ -146,41 +158,65 @@ class Tache1:
 
         # Appliquer la transformation
         self.df[nom_colonne] = self.df['serving_size'].apply(extract_serving)
-
         return self.df
 
     def knn_imputer(self, n_neighbors):
         """
         Impute les valeurs manquantes d'une colonne spécifique en utilisant KNN Imputer,
         en se basant sur les colonnes corrélées.
-        
+
         :param n_neighbors: Nombre de voisins à utiliser pour l'imputation
+
+        Retour :
+            pd.DataFrame : Le DataFrame avec les valeurs imputées.
         """
         # Calcul de la matrice de corrélation
         df_numeric = self.df.select_dtypes(include=['float64', 'int64'])
-        print(df_numeric.isnull().sum())
 
         # Appliquer le KNN Imputer uniquement sur les colonnes sélectionnées
         imputer = KNNImputer(n_neighbors=n_neighbors)
         imputed_data = imputer.fit_transform(df_numeric)
+
+        # Créer un DataFrame avec les données imputées
         df_subset_imputed = pd.DataFrame(imputed_data, columns=df_numeric.columns)
-
-        print(f"Dimensions avant imputation: {df_numeric.shape}")
-        print(f"Dimensions après imputation: {imputed_data.shape}")
-
         return df_subset_imputed
-    
-def clean_data_set():
-    tache = Tache1()
-    tache.remove_irrelevant_columns()
-    tache.remove_high_nan_columns()
-    tache.remove_duplicates()
-    return tache.df
-    
+
+
+# Example usage of the Tache1 class methods
+
+# Initialize the Tache1 class
 tache = Tache1()
-tache.remove_irrelevant_columns()
-tache.remove_high_nan_columns()
-tache.remove_duplicates()
-df_imputed = tache.knn_imputer(5)
-# df_imputed = tache.knn_impute_column('energy_100g', 5, 0.8)
+
+# Remove irrelevant columns
+print("Removing irrelevant columns...")
+df_cleaned = tache.remove_irrelevant_columns()
+print(df_cleaned.head())
+
+# Remove high NaN columns
+print("\nRemoving high NaN columns...")
+df_no_high_nan = tache.remove_high_nan_columns(threshold=90)
+print(df_no_high_nan.head())
+
+# Remove duplicates
+print("\nRemoving duplicates...")
+df_no_duplicates = tache.remove_duplicates()
+print(df_no_duplicates.head())
+
+# Get column count
+print("\nGetting column count...")
+column_count = tache.get_column_count()
+print(f"Total number of columns: {column_count}")
+
+# Clean 'serving_size' column
+print("\nCleaning 'serving_size' column...")
+df_cleaned_serving_size = tache.clean_column('serving_size_clean')
+print(df_cleaned_serving_size[['serving_size', 'serving_size_clean']].head())
+
+# Impute missing values using KNN Imputer
+print("\nImputing missing values using KNN Imputer...")
+df_imputed = tache.knn_imputer(n_neighbors=5)
+print(df_imputed.head())
+
+# Print specific columns after imputation
+print("\nPrinting specific columns after imputation...")
 print(df_imputed[["energy-kcal_100g", "energy_100g"]].head(300))
