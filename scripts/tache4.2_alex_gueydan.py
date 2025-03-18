@@ -1,14 +1,14 @@
 """
 Module pour l'analyse avancée du dataset Open Food Facts.
 
-Contient la classe `Tache42` permettant de :
+Contient les classes `DataPreprocessor`, `DataAnalyzer`, et `Plotter` permettant de :
+- Nettoyer le dataset en supprimant les colonnes non pertinentes.
+- Supprimer les colonnes contenant un taux trop élevé de valeurs manquantes.
 - Analyser les corrélations entre les variables (Pearson, Spearman).
 - Identifier les variables redondantes.
 - Tester l'indépendance entre variables catégorielles avec le chi-carré.
 - Vérifier la normalité des distributions.
 - Visualiser les relations entre variables via des heatmaps et des modèles polynomiaux.
-
-Elle contient aussi des fonction de la Tache 1, dans l'objectif d'amélioréer les performances du dataset de travail
 """
 
 import numpy as np
@@ -19,38 +19,34 @@ from scipy.stats import chi2_contingency, shapiro
 from sklearn.impute import KNNImputer
 
 
-class Tache42:
+class DataPreprocessor:
     """
-    Classe permettant d'analyser et de manipuler le dataset Open Food Facts.
-
-    Cette classe propose plusieurs méthodes pour :
-    - Visualiser les corrélations entre les variables.
-    - Effectuer des tests statistiques pour examiner les relations entre variables.
-    - Tester la normalité des variables.
-    - Identifier les variables redondantes à partir de leur corrélation.
+    Classe pour le prétraitement des données du dataset Open Food Facts.
     """
 
-    def __init__(self):
-            """
-            Initialise la classe et charge un échantillon de 10 000 lignes du dataset Open Food Facts
-            en utilisant le séparateur tabulation.
+    def __init__(self, file_path="datasets/en.openfoodfacts.org.products.csv", nrows=10000):
+        """
+        Initialise la classe en chargeant un échantillon du dataset Open Food Facts.
 
-            Attributs :
-                df (DataFrame): Un DataFrame Pandas contenant l'échantillon du dataset.
-            """
-            #Forcage de pandas a afficher autant de caractère qu'il peut sur une ligne
-            pd.set_option("display.max_columns", None)
+        Arguments :
+            file_path (str) : Chemin du fichier CSV à charger.
+            nrows (int) : Nombre de lignes à charger (par défaut 10 000).
+        """
+        pd.set_option("display.max_columns", None)
+        pd.set_option("display.max_rows", None)
 
-            #Meme chose avec le nombre de lignes
-            pd.set_option("display.max_rows", None)
-
-            #Chargement du dataset, en prenant un échantillon de 10000 lignes pour ne pas trop surcharger
-            self.df = pd.read_csv("datasets/en.openfoodfacts.org.products.csv", sep="\t", on_bad_lines='skip', nrows=10000, low_memory=False)
+        self.df = pd.read_csv(
+            file_path,
+            sep="\t",
+            on_bad_lines="skip",
+            nrows=nrows,
+            low_memory=False
+        )
 
     def remove_irrelevant_columns(self):
         """
         Supprime les colonnes non pertinentes pour l'analyse.
-        
+
         Retour :
             pd.DataFrame : Le DataFrame nettoyé.
         """
@@ -68,7 +64,7 @@ class Tache42:
 
         self.df.drop(columns=[col for col in columns_to_drop if col in self.df.columns], errors='ignore', inplace=True)
         return self.df
-    
+
     def remove_duplicates(self):
         """
         Supprime les doublons en considérant toutes les colonnes.
@@ -77,9 +73,8 @@ class Tache42:
             pd.DataFrame : Le DataFrame sans doublons.
         """
         self.df.drop_duplicates(keep="first", inplace=True)
-        
         return self.df
-    
+
     def remove_high_nan_columns(self, threshold=90):
         """
         Supprime les colonnes ayant un pourcentage de valeurs manquantes supérieur au seuil.
@@ -90,33 +85,42 @@ class Tache42:
         Retour :
             pd.DataFrame : Le DataFrame sans les colonnes trop incomplètes.
         """
-        # Calcul du pourcentage de valeurs manquantes par colonne
         nan_ratio = self.df.isna().mean() * 100
-
-        # Colonnes à supprimer (taux de NaN supérieur au seuil)
         cols_to_remove = nan_ratio[nan_ratio > threshold].index.tolist()
-
-        # Suppression des colonnes
         self.df.drop(columns=cols_to_remove, inplace=True)
-        
         return self.df
 
     def knn_imputer(self, n_neighbors):
         """
         Impute les valeurs manquantes d'une colonne spécifique en utilisant KNN Imputer,
         en se basant sur les colonnes corrélées.
-        
-        :param n_neighbors: Nombre de voisins à utiliser pour l'imputation
-        """
-        # Calcul de la matrice de corrélation
-        df_numeric = self.df.select_dtypes(include=['float64', 'int64'])
 
-        # Appliquer le KNN Imputer uniquement sur les colonnes sélectionnées
+        Arguments :
+            n_neighbors (int) : Nombre de voisins à utiliser pour l'imputation.
+
+        Retour :
+            pd.DataFrame : Le DataFrame avec les valeurs manquantes imputées.
+        """
+        df_numeric = self.df.select_dtypes(include=['float64', 'int64'])
         imputer = KNNImputer(n_neighbors=n_neighbors)
         imputed_data = imputer.fit_transform(df_numeric)
         df_subset_imputed = pd.DataFrame(imputed_data, columns=df_numeric.columns)
-
         return df_subset_imputed
+
+
+class DataAnalyzer:
+    """
+    Classe pour analyser les données du dataset Open Food Facts.
+    """
+
+    def __init__(self, df):
+        """
+        Initialise la classe avec les données prétraitées.
+
+        Arguments :
+            df (pd.DataFrame) : Les données prétraitées.
+        """
+        self.df = df
 
     def heatmap(self, threshold):
         """
@@ -127,14 +131,10 @@ class Tache42:
             threshold (float) : Le seuil de corrélation pour filtrer les valeurs.
                                  Les corrélations supérieures ou inférieures à ce seuil seront affichées.
         """
-        # Calcul de la matrice de corrélation pour les colonnes numériques
         numeric_cols = self.df.select_dtypes(include=['int64', 'float64'])
         correlation_matrix = numeric_cols.corr().abs()
-
-        # Appliquer le seuil pour filtrer les corrélations
         correlation_matrix = correlation_matrix[(correlation_matrix.abs() > threshold)]
 
-        # Créer la heatmap avec la matrice filtrée
         plt.figure(figsize=(10, 8))
         sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0, linewidths=0.5)
         plt.title(f'Correlation Heatmap with threshold {threshold}')
@@ -150,16 +150,12 @@ class Tache42:
                                  Les corrélations supérieures à ce seuil seront affichées.
 
         Retour :
-            spearman_corr (DataFrame) : La matrice de corrélation de Spearman.
+            spearman_corr (pd.DataFrame) : La matrice de corrélation de Spearman.
         """
-        # Calcul de la matrice de corrélation de Spearman
         numeric_cols = self.df.select_dtypes(include=['int64', 'float64'])
         correlation_matrix = numeric_cols.corr(method="spearman").abs()
-
-        # Appliquer le seuil pour filtrer les corrélations
         correlation_matrix = correlation_matrix[(correlation_matrix.abs() > threshold) & (correlation_matrix != 1)]
 
-        # Créer la heatmap avec la matrice filtrée
         plt.figure(figsize=(10, 8))
         sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0, linewidths=0.5)
         plt.title(f'Correlation Heatmap with threshold {threshold}')
@@ -173,7 +169,6 @@ class Tache42:
             colonne1 (str) : Le nom de la première variable.
             colonne2 (str) : Le nom de la seconde variable.
         """
-        # Effectuer le test Chi-Carré
         chi2_stat, p_value, dof, expected = chi2_contingency(pd.crosstab(self.df[colonne1], self.df[colonne2]))
 
         if p_value < 0.05:
@@ -193,11 +188,8 @@ class Tache42:
         """
         numeric_cols = self.df.select_dtypes(include=['int64', 'float64'])
         corr_matrix = numeric_cols.corr().abs()
-
-        # Créer une version de la matrice sans la diagonale (corrélation avec soi-même)
         np.fill_diagonal(corr_matrix.values, 0)
 
-        # Identifier les colonnes ayant une corrélation supérieure au seuil
         redundant_features = [
             column for column in corr_matrix.columns if any(corr_matrix[column] > threshold)
         ]
@@ -205,20 +197,6 @@ class Tache42:
         print(f"Variables redondantes : {redundant_features}")
 
         return redundant_features
-
-    def plot_polynomial_relationship(self, x_col, y_col, degree=2):
-        """
-        Affiche une relation polynomiale entre deux variables.
-
-        Arguments :
-            x_col (str) : Le nom de la colonne sur l'axe des abscisses.
-            y_col (str) : Le nom de la colonne sur l'axe des ordonnées.
-            degree (int) : Le degré du polynôme à ajuster.
-        """
-        plt.figure(figsize=(8, 5))
-        sns.regplot(x=self.df[x_col], y=self.df[y_col], order=degree, scatter_kws={"s": 10}, line_kws={"color": "red"})
-        plt.title(f"Relation polynomiale (degré {degree}) entre {x_col} et {y_col}")
-        plt.show()
 
     def check_normality(self, column):
         """
@@ -234,14 +212,73 @@ class Tache42:
             print(f"La variable {column} ne suit pas une distribution normale.")
 
 
+class Plotter:
+    """
+    Classe pour visualiser les relations entre les variables du dataset Open Food Facts.
+    """
 
-# tache = Tache42()
-# tache.remove_irrelevant_columns()
-# tache.remove_high_nan_columns()
-# tache.remove_duplicates()
-# tache.heatmap(0.5)
-# tache.spearman_correlation(0.3)
-# tache.find_highly_correlated_features(0.7)
-# tache.plot_polynomial_relationship("sodium_100g", "energy_100g", degree=2)
-# tache.test_polynomial_features(["sodium_100g", "fat_100g"], "energy_100g", degree=2)
-# tache.find_highly_correlated_features(threshold=0.9)
+    @staticmethod
+    def plot_polynomial_relationship(df, x_col, y_col, degree=2):
+        """
+        Affiche une relation polynomiale entre deux variables.
+
+        Arguments :
+            df (pd.DataFrame) : Le DataFrame contenant les données.
+            x_col (str) : Le nom de la colonne sur l'axe des abscisses.
+            y_col (str) : Le nom de la colonne sur l'axe des ordonnées.
+            degree (int) : Le degré du polynôme à ajuster.
+        """
+        plt.figure(figsize=(8, 5))
+        sns.regplot(x=df[x_col], y=df[y_col], order=degree, scatter_kws={"s": 10}, line_kws={"color": "red"})
+        plt.title(f"Relation polynomiale (degré {degree}) entre {x_col} et {y_col}")
+        plt.show()
+
+
+# Example usage of the DataPreprocessor, DataAnalyzer, and Plotter class methods
+
+# Initialize the DataPreprocessor class
+preprocessor = DataPreprocessor()
+
+# Remove irrelevant columns
+print("Removing irrelevant columns...")
+df_cleaned = preprocessor.remove_irrelevant_columns()
+print(df_cleaned.head())
+
+# Remove high NaN columns
+print("\nRemoving high NaN columns...")
+df_no_high_nan = preprocessor.remove_high_nan_columns(threshold=90)
+print(df_no_high_nan.head())
+
+# Remove duplicates
+print("\nRemoving duplicates...")
+df_no_duplicates = preprocessor.remove_duplicates()
+print(df_no_duplicates.head())
+
+# Impute missing values using KNN Imputer
+print("\nImputing missing values using KNN Imputer...")
+df_imputed = preprocessor.knn_imputer(n_neighbors=5)
+print(df_imputed.head())
+
+# Initialize the DataAnalyzer class
+analyzer = DataAnalyzer(df_imputed)
+
+# Generate heatmap
+print("\nGenerating heatmap...")
+analyzer.heatmap(threshold=0.5)
+
+# Calculate Spearman correlation
+print("\nCalculating Spearman correlation...")
+analyzer.spearman_correlation(threshold=0.3)
+
+# Find highly correlated features
+print("\nFinding highly correlated features...")
+redundant_features = analyzer.find_highly_correlated_features(threshold=0.7)
+print(f"Redundant features: {redundant_features}")
+
+# Check normality of a specific column
+print("\nChecking normality of 'sodium_100g' column...")
+analyzer.check_normality("sodium_100g")
+
+# Initialize the Plotter class and plot polynomial relationship
+print("\nPlotting polynomial relationship...")
+Plotter.plot_polynomial_relationship(df_imputed, "sodium_100g", "energy_100g", degree=2)
