@@ -61,7 +61,9 @@ class Tache0:
         Retour :
             DataFrame : Un DataFrame contenant uniquement les colonnes ordinales spécifiées.
         """
-        return self.df[cols] if all(col in self.df.columns for col in cols) else None
+        if all(col in self.df.columns for col in cols):
+            return self.df[cols]
+        return None
 
     def select_non_ordinal_columns(self, ordinal_cols):
         """
@@ -88,8 +90,7 @@ class Tache0:
         """
         categorical_cols = self.df.select_dtypes(include=["object"]).columns
         return self.df[
-            [col for col in categorical_cols if col not in ordinal_cols\
-             and "date" not in col.lower()]
+            [col for col in categorical_cols if col not in ordinal_cols and "date" not in col.lower()]
         ]
 
     def downcast_numerics(self):
@@ -100,14 +101,15 @@ class Tache0:
             DataFrame : Le DataFrame avec les colonnes numériques optimisées.
         """
         for col in self.df.select_dtypes(include=["int64", "float64"]).columns:
-            self._df[col] = pd.to_numeric(self.df[col], downcast="integer")\
-            if self.df[col].dtype == "int64" else pd.to_numeric(self.df[col], downcast="float")
+            if self.df[col].dtype == "int64":
+                self._df[col] = pd.to_numeric(self.df[col], downcast="integer")
+            else:
+                self._df[col] = pd.to_numeric(self.df[col], downcast="float")
         return self.df
 
     def numbers_variables(self, threshold):
         """
-        Sélectionne les colonnes catégorielles\
-        ayant un nombre de catégories unique inférieur ou égal à `threshold`.
+        Sélectionne les colonnes catégorielles ayant un nombre de catégories unique inférieur ou égal à `threshold`.
 
         Arguments :
             threshold (int) : Nombre maximum de catégories uniques autorisé.
@@ -132,8 +134,43 @@ class Tache0:
         return self.df[column_name].nunique() if column_name in self.df.columns else None
 
 
-if __name__ == "__main__":
-    tache = Tache0()
-    data = tache.downcast_numerics()
-    category_df = tache.numbers_variables(100)
-    print(category_df.head())
+# Example usage of the Tache0 class methods
+
+# Initialize the Tache0 class
+tache = Tache0()
+
+# Select numeric columns
+print("Selecting numeric columns...")
+numeric_df = tache.select_numeric_columns()
+print(numeric_df.head())
+
+# Select ordinal columns
+print("\nSelecting ordinal columns...")
+ordinal_cols = ['column1', 'column2']  # Replace with actual ordinal column names
+ordinal_df = tache.select_ordinal_columns(ordinal_cols)
+print(ordinal_df.head() if ordinal_df is not None else "Some columns are missing.")
+
+# Select non-ordinal columns
+print("\nSelecting non-ordinal columns...")
+non_ordinal_df = tache.select_non_ordinal_columns(ordinal_cols)
+print(non_ordinal_df.head())
+
+# Select non-ordinal columns without date
+print("\nSelecting non-ordinal columns without date...")
+non_ordinal_no_date_df = tache.select_non_ordinal_columns_without_date(ordinal_cols)
+print(non_ordinal_no_date_df.head())
+
+# Downcast numerics
+print("\nDowncasting numerics...")
+downcasted_df = tache.downcast_numerics()
+print(downcasted_df.head())
+
+# Select categorical columns with a limited number of unique values
+print("\nSelecting categorical columns with <= 100 unique values...")
+category_df = tache.numbers_variables(100)
+print(category_df.head())
+
+# Count unique categories in a specific column
+print("\nCounting unique categories in a specific column...")
+unique_count = tache.unique_categories_count('column_name')  # Replace with actual column name
+print(f"Unique categories count: {unique_count}")
