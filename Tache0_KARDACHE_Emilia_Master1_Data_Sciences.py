@@ -2,6 +2,27 @@ import pandas as pd
 import numpy as np
 
 def detect_variables(df, max_categories=50):
+
+    """
+    Cette fonction détecte et catégorise les variables d'un DataFrame :
+    - Identifie les variables numériques et catégorielles.
+    - Classe les variables catégorielles en ordinales et non ordinales.
+    - Optimise la mémoire des variables numériques en effectuant un downcasting.
+    - Filtre les variables catégorielles selon le nombre de catégories.
+ 
+    Paramètres :
+    - df : DataFrame
+        Le DataFrame à analyser.
+    - max_categories : int, optionnel (par défaut 50)
+        Le nombre maximal de catégories pour qu'une variable catégorielle soit conservée.
+
+    Retourne :
+    - Un dictionnaire avec les résultats de l'analyse des variables :
+        - "Types de variables" : un DataFrame des types et noms de variables.
+        - "Colonnes conservées (catégorielles)" : une liste des colonnes catégorielles conservées.
+        - "Colonnes exclues (catégorielles)" : une liste des colonnes catégorielles exclues.
+    """
+
     # 1. Détection des types de variables
     numeric_columns = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
     categorical_columns = df.select_dtypes(include=['object', 'category']).columns.tolist()
