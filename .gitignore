@@ -7,4 +7,4 @@ en.openfoodfacts.org.products.csv
 .idea
 .vscode
 .coverage
-/notebooks
+notebooks
