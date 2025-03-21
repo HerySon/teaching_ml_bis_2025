@@ -46,7 +46,7 @@ def detect_variables(df, max_categories=50, sample_size=1000):
         
         for predefined_values in predefined_ordinal_categories.values():
             matching_values = [val for val in unique_values if val in predefined_values]
-            if len(matching_values) / len(unique_values) > 0.7:
+            if len(unique_values) > 0 and len(matching_values) / len(unique_values) > 0.7:  # Ajout de la condition pour éviter la division par zéro
                 ordinal_columns.append(col)
                 break
         else:
@@ -105,5 +105,4 @@ result = detect_variables(df, sample_size=1000)
 # Afficher les résultats
 print(result["Types de variables"])
 print("Colonnes conservées : ", result["Colonnes conservées (catégorielles)"])
-print("Colonnes exclues : ", result["Colonnes exclues (catégorielles)"])
-
+print("Colonnes exclues : ", result["Colonnes exclues (catégorielles)"])  
