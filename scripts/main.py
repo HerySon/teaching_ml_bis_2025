@@ -22,7 +22,6 @@ from .test_scaling import (
     preprocess_data,
     analyze_distributions,
     compare_scaling_methods,
-    evaluate_scaling_method,
     recommend_scaling_methods
 )
 

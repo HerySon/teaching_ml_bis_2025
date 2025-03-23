@@ -5,7 +5,6 @@ using different scaling methods.
 """
 
 try:
-    import numpy as np
     import pandas as pd
     from typing import Callable, Literal, Optional
     from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
@@ -96,9 +95,11 @@ def robust_scaler(df: pd.DataFrame, columns: Optional[list[str]] = None) -> pd.D
     return scaled_df
 
 
-def power_transformer(df: pd.DataFrame,
-                     method: Literal['yeo-johnson', 'box-cox'] = 'yeo-johnson',
-                     columns: Optional[list[str]] = None) -> pd.DataFrame:
+def power_transformer(
+    df: pd.DataFrame,
+    method: Literal['yeo-johnson', 'box-cox'] = 'yeo-johnson',
+    columns: Optional[list[str]] = None,
+) -> pd.DataFrame:
     """
     Apply PowerTransformer to make data more Gaussian-like.
 
@@ -122,9 +123,12 @@ def power_transformer(df: pd.DataFrame,
     return scaled_df
 
 
-def quantile_transformer(df: pd.DataFrame, n_quantiles: int = 1000,
-                        distribution: Literal['uniform', 'normal'] = 'uniform',
-                        columns: Optional[list[str]] = None) -> pd.DataFrame:
+def quantile_transformer(
+    df: pd.DataFrame,
+    n_quantiles: int = 1000,
+    distribution: Literal['uniform', 'normal'] = 'uniform',
+    columns: Optional[list[str]] = None,
+) -> pd.DataFrame:
     """
     Apply QuantileTransformer to transform to uniform or normal distribution.
 
@@ -167,18 +171,22 @@ def select_scaling_method(method: str) -> Callable:
         'minmax': minmax_scaler,
         'robust': robust_scaler,
         'power': power_transformer,
-        'quantile': quantile_transformer
+        'quantile': quantile_transformer,
     }
 
     if method not in method_map:
-        raise ValueError(f"Unknown scaling method: {method}."
-                         f"Available methods: {list(method_map.keys())}")
+        raise ValueError(
+            f"Unknown scaling method: {method}."
+            f"Available methods: {list(method_map.keys())}",
+        )
 
     return method_map[method]
 
 
-def scale_dataframe(df: pd.DataFrame, method: str = 'standard',
-                   columns: Optional[list[str]] = None, **kwargs) -> pd.DataFrame:
+def scale_dataframe(
+    df: pd.DataFrame, method: str = 'standard',
+    columns: Optional[list[str]] = None, **kwargs,
+) -> pd.DataFrame:
     """
     Scale a dataframe using the specified method.
 
