@@ -203,45 +203,39 @@ def smart_sample(
             duplicates='drop'
         )
     
-    # Calcul du nombre de splits optimal
-    min_class_size = df['combined_strata'].value_counts().min()
-    target_ratio = target_size / len(df)
+    # Calcul des proportions cibles pour chaque strate
+    strata_counts = df['combined_strata'].value_counts()
+    total_samples = len(df)
     
-    # Assurer au moins 2 splits et pas plus que la plus petite classe
-    n_splits = max(2, min(
-        int(1 / target_ratio),  # Nombre de splits basé sur le ratio cible
-        min_class_size // 2     # Limité par la taille de la plus petite classe
-    ))
+    # Calcul du nombre d'échantillons par strate
+    samples_per_stratum = {}
+    for stratum in strata_counts.index:
+        stratum_ratio = strata_counts[stratum] / total_samples
+        samples_per_stratum[stratum] = max(1, int(target_size * stratum_ratio))
     
-    # Si le nombre de splits est trop grand par rapport aux données
-    if n_splits > min_class_size // 2:
-        # Utiliser l'échantillonnage stratifié direct
-        sample = df.groupby('combined_strata', group_keys=False).apply(
-            lambda x: x.sample(
-                n=max(1, int(len(x) * target_size / len(df))),
-                random_state=random_state
-            )
-        )
-    else:
-        # Utiliser StratifiedKFold
-        skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
-        
-        # Sélection du meilleur fold
-        X = df.drop('combined_strata', axis=1)
-        y = df['combined_strata']
-        
-        best_sample = None
-        best_diff = float('inf')
-        
-        for train_idx, test_idx in skf.split(X, y):
-            fold_sample = df.iloc[test_idx]
-            size_diff = abs(len(fold_sample) - target_size)
-            
-            if size_diff < best_diff:
-                best_diff = size_diff
-                best_sample = fold_sample
-        
-        sample = best_sample
+    # Ajustement pour atteindre exactement la taille cible
+    total_allocated = sum(samples_per_stratum.values())
+    if total_allocated > target_size:
+        # Réduire proportionnellement chaque strate
+        reduction_ratio = target_size / total_allocated
+        for stratum in samples_per_stratum:
+            samples_per_stratum[stratum] = max(1, int(samples_per_stratum[stratum] * reduction_ratio))
+    
+    # Échantillonnage stratifié avec les tailles ajustées
+    sampled_dfs = []
+    for stratum, size in samples_per_stratum.items():
+        stratum_df = df[df['combined_strata'] == stratum]
+        if len(stratum_df) > size:
+            sampled_dfs.append(stratum_df.sample(n=size, random_state=random_state))
+        else:
+            sampled_dfs.append(stratum_df)  # Prendre toute la strate si trop petite
+    
+    # Combinaison des échantillons
+    sample = pd.concat(sampled_dfs, axis=0)
+    
+    # Si l'échantillon est encore trop grand, réduire aléatoirement
+    if len(sample) > target_size:
+        sample = sample.sample(n=target_size, random_state=random_state)
     
     # Nettoyage
     sample = sample.drop('combined_strata', axis=1)
