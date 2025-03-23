@@ -118,7 +118,10 @@ def main():
             recommendations = recommend_scaling_methods(processed_df)
 
             # Group columns by recommended scaling method
-            grouped_cols = recommendations.groupby('recommended_scaling')['column'].apply(list).to_dict()
+            grouped_cols = recommendations\
+                .groupby('recommended_scaling')['column']\
+                .apply(list)\
+                .to_dict()
 
             # Apply recommended scaling methods to each group
             final_scaled_df = processed_df.copy()

@@ -99,7 +99,10 @@ def analyze_distributions(
 
     # Create sample of columns if too many
     if len(columns_list) > 10:
-        column_sample = cast(list[str], np.random.choice(columns_list, 10, replace=False).tolist())
+        column_sample = cast(
+            list[str],
+            np.random.choice(columns_list, 10, replace=False).tolist()
+        )
     else:
         column_sample = columns_list
 
@@ -136,7 +139,10 @@ def compare_scaling_methods(
     if columns is None:
         all_numeric = get_numeric_columns(df)
         # Select a sample of numeric columns
-        columns = cast(List[str], np.random.choice(all_numeric, min(5, len(all_numeric)), replace=False).tolist())
+        columns = cast(
+            list[str],
+            np.random.choice(all_numeric, min(5, len(all_numeric)), replace=False).tolist()
+        )
 
     print(f"Comparing scaling methods on columns: {columns}")
 
@@ -172,7 +178,7 @@ def evaluate_scaling_method(
     df: pd.DataFrame,
     method: Literal['standard', 'minmax', 'robust', 'power', 'quantile'],
     columns: list[str] | None = None
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Evaluate a scaling method by comparing statistics before and after scaling.
 
@@ -246,12 +252,18 @@ def recommend_scaling_methods(df: pd.DataFrame) -> pd.DataFrame:
 
         # Determine recommended method based on skewness and outliers
         if pct_outliers > 5:
-            if isinstance(skewness, (int, float)) and (skewness > 1 or skewness < -1):
+            if isinstance(
+                skewness,
+                (int, float)) and (skewness > 1 or skewness < -1
+            ):
                 recommendation = "power"  # For skewed data with outliers
             else:
                 recommendation = "robust"  # For data with outliers
         else:
-            if isinstance(skewness, (int, float)) and (skewness > 1 or skewness < -1):
+            if isinstance(
+                skewness,
+                (int, float)) and (skewness > 1 or skewness < -1
+            ):
                 recommendation = "quantile"  # For skewed data
             else:
                 recommendation = "standard"  # For normally distributed data

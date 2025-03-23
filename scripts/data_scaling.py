@@ -171,7 +171,8 @@ def select_scaling_method(method: str) -> Callable:
     }
 
     if method not in method_map:
-        raise ValueError(f"Unknown scaling method: {method}. Available methods: {list(method_map.keys())}")
+        raise ValueError(f"Unknown scaling method: {method}."
+                         f"Available methods: {list(method_map.keys())}")
 
     return method_map[method]
 
