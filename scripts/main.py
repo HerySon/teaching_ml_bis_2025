@@ -112,7 +112,8 @@ def test_food_outlier_detection():
             original_value = data.loc[0, 'fat_100g']
             new_value = result.loc[0, 'fat_100g']
             print(
-                f"Strategy {strategy_name}: fat_100g example {original_value:.2f} -> {new_value:.2f}"
+                f"Strategy {strategy_name}: "
+                f"fat_100g example {original_value:.2f} -> {new_value:.2f}"
             )
         else:
             print(f"Strategy {strategy_name}: {len(result)} rows")
