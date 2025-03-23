@@ -5,8 +5,8 @@ This module provides utilities for filtering and selecting relevant columns from
 particularly optimized for the OpenFoodFacts dataset.
 """
 
+from typing import Any
 import pandas as pd
-from typing import Any, Optional
 
 
 def identify_column_types(df: pd.DataFrame) -> dict[str, list[str]]:
@@ -50,9 +50,11 @@ def identify_column_types(df: pd.DataFrame) -> dict[str, list[str]]:
         elif col in known_ordinal_columns:
             column_types["categorical_ordinal"].append(col)
 
-        # Check for categorical columns, function is_categorical_dtype isn't present in 2.2.3 so we use isinstance
+        # Check for categorical columns, function is_categorical_dtype isn't present in 2.2.3 so
+        # we use isinstance
         elif isinstance(df[col].dtype, pd.CategoricalDtype) or (
-            df[col].nunique() < 0.1 * len(df) and df[col].nunique() <= 100):
+            df[col].nunique() < 0.1 * len(df) and df[col].nunique() <= 100
+        ):
             column_types["categorical_non_ordinal"].append(col)
 
         # Check for text columns (likely non-ordinal categorical with many values)
@@ -219,7 +221,8 @@ def filter_dataframe(
     df : pd.DataFrame
         Input DataFrame
     column_types_to_keep : list, default=None
-        List of column types to keep. If None, uses ["numeric", "categorical_ordinal", "categorical_non_ordinal"]
+        List of column types to keep. If None, uses
+        ["numeric", "categorical_ordinal", "categorical_non_ordinal"]
     missing_threshold : float, default=0.5
         Maximum percentage of missing values allowed
     max_categories : int, default=50
