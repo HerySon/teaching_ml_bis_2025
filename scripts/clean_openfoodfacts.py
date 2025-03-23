@@ -5,7 +5,10 @@ Main script to clean OpenFoodFacts dataset by integrating all cleaning functiona
 import argparse
 from pathlib import Path
 
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    raise ImportError("pandas is required for this module")
 
 from .data_cleaning import (
     load_data,

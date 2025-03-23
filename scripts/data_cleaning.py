@@ -6,8 +6,11 @@ This script implements various methods to clean problematic values in the datase
 import re
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
+try:
+    import numpy as np
+    import pandas as pd
+except ImportError:
+    raise ImportError("numpy and pandas are required for this module")
 
 
 def load_data(path: str, nrows: int | None = None) -> pd.DataFrame:
@@ -226,9 +229,6 @@ def clean_data(
 
     # Remove irrelevant columns
     df_clean = remove_irrelevant_columns(df)
-
-    # Identify columns with missing values
-    missing_info = identify_missing_values(df_clean)
 
     # Clean serving_size column and extract quantities
     df_clean = clean_serving_size(df_clean)

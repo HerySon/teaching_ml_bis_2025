@@ -5,8 +5,11 @@ Focuses on quantity, serving_size, and similar fields that contain structured in
 
 import re
 
-import numpy as np
-import pandas as pd
+try:
+    import numpy as np
+    import pandas as pd
+except ImportError:
+    raise ImportError("numpy and pandas are required for this module")
 
 
 def extract_quantity(text: str) -> float | None:
