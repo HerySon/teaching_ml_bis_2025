@@ -10,6 +10,7 @@ try:
     import numpy as np
     import pandas as pd
     from typing import Dict, List, Tuple, Optional
+    from dataclasses import dataclass
 except ImportError as e:
     print(f"Erreur lors de l'importation des modules : {e}")
 
@@ -19,6 +20,51 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger('DataFrameProcessor')
+
+
+@dataclass
+class ColumnTypeConfig:
+    """Configuration pour la détection des types de colonnes."""
+    text_max_categories: int = 1000
+    ordinal_columns: Optional[Dict[str, Dict]] = None
+
+
+@dataclass
+class MemoryConfig:
+    """Configuration pour l'optimisation de la mémoire."""
+    convert_numerics: bool = True
+    convert_categories: bool = True
+    verbose: bool = True
+
+
+@dataclass
+class CategoricalConfig:
+    """Configuration pour le filtrage des colonnes catégorielles."""
+    min_categories: int = 2
+    max_categories: int = 50
+    max_missing_pct: float = 0.8
+
+
+@dataclass
+class ColumnSelectionConfig:
+    """Configuration pour la sélection des colonnes pertinentes."""
+    min_categorical_categories: int = 2
+    max_categorical_categories: int = 50
+    max_missing_pct: float = 0.8
+    include_text: bool = False
+    include_datetime: bool = False
+    include_url: bool = False
+
+
+@dataclass
+class ProcessConfig:
+    """Configuration complète pour le traitement du DataFrame."""
+    column_type_config: ColumnTypeConfig = ColumnTypeConfig()
+    memory_config: MemoryConfig = MemoryConfig()
+    categorical_config: CategoricalConfig = CategoricalConfig()
+    column_selection_config: ColumnSelectionConfig = ColumnSelectionConfig()
+    optimize_memory_flag: bool = True
+    return_stats: bool = True
 
 
 class DataFrameProcessor:
@@ -48,305 +94,384 @@ class DataFrameProcessor:
             'nutriscore_grade': {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5},
             'nova_group': {1: 1, 2: 2, 3: 3, 4: 4},
             'environmental_score_grade': {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5}
-            # Ajouter d'autres colonnes ordinales ici si nécessaire
         }
 
-    def detect_column_types(self,
-                            text_max_categories: int = 1000,
-                            ordinal_columns: Optional[Dict[str, Dict]] = None
-                            ) -> Dict[str, List[str]]:
+    def _is_datetime_column(self, col: str, dtype: str) -> bool:
+        """
+        Vérifie si une colonne est de type datetime.
+        
+        Args:
+            col: Nom de la colonne
+            dtype: Type de données de la colonne
+            
+        Returns:
+            True si la colonne est de type datetime
+        """
+        return (pd.api.types.is_datetime64_dtype(dtype) or
+                (dtype == 'object' and 'datetime' in col and
+                 self.df[col].str.contains('T.*Z').mean() > 0.5))
+
+    def _is_categorical_column(self, col: str, dtype: str, unique_count: int) -> bool:
+        """
+        Vérifie si une colonne est catégorielle.
+        
+        Args:
+            col: Nom de la colonne
+            dtype: Type de données de la colonne
+            unique_count: Nombre de valeurs uniques
+            
+        Returns:
+            True si la colonne est catégorielle
+        """
+        return (dtype == 'object' or pd.api.types.is_categorical_dtype(dtype)) and (
+                col in self.ordinal_columns_mapping or unique_count <= self.column_type_config.text_max_categories
+        )
+
+    def detect_column_types(self, config: ColumnTypeConfig = ColumnTypeConfig()) -> Dict[str, List[str]]:
         """
         Détecte automatiquement les types de colonnes dans le DataFrame.
         
         Args:
-            text_max_categories: Nombre maximum de catégories pour considérer une colonne 
-            comme textuelle
-            ordinal_columns: Dictionnaire des colonnes ordinales avec leurs mappages
+            config: Configuration pour la détection des types
             
         Returns:
             Dictionnaire contenant les colonnes classées par type
         """
         logger.info("Détection des types de colonnes...")
+        self.column_type_config = config
 
         # Utiliser le mapping fourni ou celui par défaut
-        if ordinal_columns:
-            self.ordinal_columns_mapping.update(ordinal_columns)
+        if config.ordinal_columns:
+            self.ordinal_columns_mapping.update(config.ordinal_columns)
 
         # Réinitialisation des catégories
         for key in self.column_types:
             self.column_types[key] = []
 
         for col in self.df.columns:
-            # Ignorer les colonnes avec toutes les valeurs nulles
             if self.df[col].isna().all():
                 self.column_types['other'].append(col)
                 continue
 
             dtype = self.df[col].dtype
+            unique_count = self.df[col].nunique()
 
-            # Colonnes numériques
             if np.issubdtype(dtype, np.number):
-                # Vérifier si c'est une colonne ordinale
-                if col in self.ordinal_columns_mapping:
-                    self.column_types['categorical_ordinal'].append(col)
-                else:
-                    # Si a peu de valeurs uniques, peut être catégorielle
-                    unique_count = self.df[col].nunique()
-                    if unique_count < 20 and unique_count / len(self.df) < 0.01:
-                        self.column_types['categorical_nominal'].append(col)
-                    else:
-                        self.column_types['numeric'].append(col)
-
-            # Colonnes de type datetime
-            elif pd.api.types.is_datetime64_dtype(dtype) or (
-                    dtype == 'object' and
-                    'datetime' in col and
-                    self.df[col].str.contains('T.*Z').mean() > 0.5
-            ):
+                self._handle_numeric_column(col)
+            elif self._is_datetime_column(col, dtype):
                 self.column_types['datetime'].append(col)
-
-            # Colonnes catégorielles
-            elif dtype == 'object' or pd.api.types.is_categorical_dtype(dtype):
-                # Colonnes ordinales connues
-                if col in self.ordinal_columns_mapping:
-                    self.column_types['categorical_ordinal'].append(col)
-                else:
-                    # Analyser le nombre de catégories uniques
-                    unique_count = self.df[col].nunique()
-
-                    # Si trop de catégories, considérer comme texte ou autre
-                    if unique_count > text_max_categories:
-                        self.column_types['text'].append(col)
-                    else:
-                        self.column_types['categorical_nominal'].append(col)
+            elif self._is_categorical_column(col, dtype, unique_count):
+                self._handle_categorical_column(col)
             else:
                 self.column_types['other'].append(col)
 
-        # Afficher un résumé
         for col_type, cols in self.column_types.items():
             logger.info("%s: %d colonnes", col_type, len(cols))
 
         return self.column_types
 
-    def optimize_memory(self,
-                        convert_numerics: bool = True,
-                        convert_categories: bool = True,
-                        verbose: bool = True) -> pd.DataFrame:
+    def _handle_numeric_column(self, col: str) -> None:
+        """
+        Gère la classification d'une colonne numérique.
+        
+        Args:
+            col: Nom de la colonne
+        """
+        if col in self.ordinal_columns_mapping:
+            self.column_types['categorical_ordinal'].append(col)
+        else:
+            unique_count = self.df[col].nunique()
+            if unique_count < 20 and unique_count / len(self.df) < 0.01:
+                self.column_types['categorical_nominal'].append(col)
+            else:
+                self.column_types['numeric'].append(col)
+
+    def _handle_categorical_column(self, col: str) -> None:
+        """
+        Gère la classification d'une colonne catégorielle.
+        
+        Args:
+            col: Nom de la colonne
+        """
+        if col in self.ordinal_columns_mapping:
+            self.column_types['categorical_ordinal'].append(col)
+        else:
+            unique_count = self.df[col].nunique()
+            if unique_count > self.column_type_config.text_max_categories:
+                self.column_types['text'].append(col)
+            else:
+                self.column_types['categorical_nominal'].append(col)
+
+    def optimize_memory(self, config: MemoryConfig = MemoryConfig()) -> pd.DataFrame:
         """
         Optimise l'utilisation de la mémoire du DataFrame par downcasting.
         
         Args:
-            convert_numerics: Si True, convertit les types numériques
-            convert_categories: Si True, convertit les colonnes catégorielles
-            verbose: Si True, affiche les informations de conversion
+            config: Configuration pour l'optimisation de la mémoire
             
         Returns:
             DataFrame optimisé
         """
         logger.info("Optimisation de la mémoire...")
+        self.memory_config = config
 
-        # Si les types de colonnes n'ont pas été détectés
         if not any(self.column_types.values()):
             self.detect_column_types()
 
         df_optimized = self.df.copy()
 
-        # Downcast des colonnes numériques
-        if convert_numerics:
-            for col in self.column_types['numeric']:
-                col_data = df_optimized[col]
+        if config.convert_numerics:
+            self._optimize_numeric_columns(df_optimized)
 
-                # Ignorer les colonnes avec toutes les valeurs NaN
-                if col_data.isna().all():
-                    continue
+        if config.convert_categories:
+            self._optimize_categorical_columns(df_optimized)
 
-                # Convertir les entiers
-                if pd.api.types.is_integer_dtype(col_data):
-                    # Déterminer le type d'entier minimum requis
-                    min_val = col_data.min()
-                    max_val = col_data.max()
-
-                    if min_val >= 0:  # Unsigned int
-                        if max_val <= 255:
-                            df_optimized[col] = col_data.astype(np.uint8)
-                        elif max_val <= 65535:
-                            df_optimized[col] = col_data.astype(np.uint16)
-                        elif max_val <= 4294967295:
-                            df_optimized[col] = col_data.astype(np.uint32)
-                    else:  # Signed int
-                        if min_val >= -128 and max_val <= 127:
-                            df_optimized[col] = col_data.astype(np.int8)
-                        elif min_val >= -32768 and max_val <= 32767:
-                            df_optimized[col] = col_data.astype(np.int16)
-                        elif min_val >= -2147483648 and max_val <= 2147483647:
-                            df_optimized[col] = col_data.astype(np.int32)
-
-                # Convertir les flottants
-                elif pd.api.types.is_float_dtype(col_data):
-                    # Tester si float32 est suffisant (moins précis mais prend moins de place)
-                    df_optimized[col] = col_data.astype(np.float32)
-
-        # Convertir les colonnes catégorielles en type 'category'
-        if convert_categories:
-            for col_type in ['categorical_ordinal', 'categorical_nominal']:
-                for col in self.column_types[col_type]:
-                    if col in df_optimized.columns:
-                        df_optimized[col] = df_optimized[col].astype('category')
-
-        # Afficher les économies de mémoire réalisées
-        if verbose:
-            new_memory = df_optimized.memory_usage(deep=True).sum()
-            memory_reduction = 100 * (1 - new_memory / self.original_memory)
-            logger.info("Mémoire initiale: %.2f MB", self.original_memory / 1e6)
-            logger.info("Mémoire optimisée: %.2f MB", new_memory / 1e6)
-            logger.info("Réduction: %.2f%%", memory_reduction)
+        if config.verbose:
+            self._log_memory_optimization(df_optimized)
 
         return df_optimized
 
-    def filter_categorical_columns(self,
-                                   min_categories: int = 2,
-                                   max_categories: int = 50,
-                                   max_missing_pct: float = 0.8) -> Tuple[List[str], List[str]]:
+    def _optimize_numeric_columns(self, df: pd.DataFrame) -> None:
+        """
+        Optimise les colonnes numériques.
+        
+        Args:
+            df: DataFrame à optimiser
+        """
+        for col in self.column_types['numeric']:
+            if df[col].isna().all():
+                continue
+
+            if pd.api.types.is_integer_dtype(df[col]):
+                self._optimize_integer_column(df, col)
+            elif pd.api.types.is_float_dtype(df[col]):
+                df[col] = df[col].astype(np.float32)
+
+    def _optimize_integer_column(self, df: pd.DataFrame, col: str) -> None:
+        """
+        Optimise une colonne entière.
+        
+        Args:
+            df: DataFrame à optimiser
+            col: Nom de la colonne
+        """
+        col_data = df[col]
+        min_val = col_data.min()
+        max_val = col_data.max()
+
+        if min_val >= 0:  # Unsigned int
+            if max_val <= 255:
+                df[col] = col_data.astype(np.uint8)
+            elif max_val <= 65535:
+                df[col] = col_data.astype(np.uint16)
+            elif max_val <= 4294967295:
+                df[col] = col_data.astype(np.uint32)
+        else:  # Signed int
+            if min_val >= -128 and max_val <= 127:
+                df[col] = col_data.astype(np.int8)
+            elif min_val >= -32768 and max_val <= 32767:
+                df[col] = col_data.astype(np.int16)
+            elif min_val >= -2147483648 and max_val <= 2147483647:
+                df[col] = col_data.astype(np.int32)
+
+    def _optimize_categorical_columns(self, df: pd.DataFrame) -> None:
+        """
+        Optimise les colonnes catégorielles.
+        
+        Args:
+            df: DataFrame à optimiser
+        """
+        for col_type in ['categorical_ordinal', 'categorical_nominal']:
+            for col in self.column_types[col_type]:
+                if col in df.columns:
+                    df[col] = df[col].astype('category')
+
+    def _log_memory_optimization(self, df_optimized: pd.DataFrame) -> None:
+        """
+        Journalise les résultats de l'optimisation de la mémoire.
+        
+        Args:
+            df_optimized: DataFrame optimisé
+        """
+        new_memory = df_optimized.memory_usage(deep=True).sum()
+        memory_reduction = 100 * (1 - new_memory / self.original_memory)
+        logger.info("Mémoire initiale: %.2f MB", self.original_memory / 1e6)
+        logger.info("Mémoire optimisée: %.2f MB", new_memory / 1e6)
+        logger.info("Réduction: %.2f%%", memory_reduction)
+
+    def filter_categorical_columns(self, config: CategoricalConfig = CategoricalConfig()) -> Tuple[
+        List[str], List[str]]:
         """
         Filtre les colonnes catégorielles selon différents critères.
         
         Args:
-            min_categories: Nombre minimum de catégories
-            max_categories: Nombre maximum de catégories
-            max_missing_pct: Pourcentage maximum de valeurs manquantes
+            config: Configuration pour le filtrage des colonnes catégorielles
             
         Returns:
             Tuple contenant (colonnes_retenues, colonnes_rejetées)
         """
         logger.info("Filtrage des colonnes catégorielles...")
+        self.categorical_config = config
 
-        # Si les types de colonnes n'ont pas été détectés
         if not any(self.column_types.values()):
             self.detect_column_types()
 
         retained_columns = []
         rejected_columns = []
 
-        # Combiner les colonnes catégorielles ordinales et non-ordinales
         categorical_columns = (self.column_types['categorical_ordinal'] +
                                self.column_types['categorical_nominal'])
 
         for col in categorical_columns:
-            # Calculer le pourcentage de valeurs manquantes
-            missing_pct = self.df[col].isna().mean()
-
-            # Compter le nombre de catégories uniques (en ignorant les NaN)
-            unique_count = self.df[col].dropna().nunique()
-
-            # Vérifier les critères
-            if (missing_pct <= max_missing_pct and
-                    unique_count >= min_categories and
-                    unique_count <= max_categories):
+            if self._is_valid_categorical_column(col):
                 retained_columns.append(col)
             else:
-                reason = []
-                if missing_pct > max_missing_pct:
-                    reason.append(f"trop de valeurs manquantes ({missing_pct:.2%})")
-                if unique_count < min_categories:
-                    reason.append(f"pas assez de catégories ({unique_count})")
-                if unique_count > max_categories:
-                    reason.append(f"trop de catégories ({unique_count})")
+                rejected_columns.append(self._get_rejection_reason(col))
 
-                rejected_columns.append((col, ", ".join(reason)))
-
-        # Journaliser les résultats
-        logger.info("Colonnes catégorielles retenues: %d", len(retained_columns))
-        logger.info("Colonnes catégorielles rejetées: %d", len(rejected_columns))
-
-        # Afficher les raisons de rejet pour les premières colonnes
-        for col, reason in rejected_columns[:10]:
-            logger.debug("Rejeté: %s - %s", col, reason)
+        self._log_categorical_filtering(retained_columns, rejected_columns)
 
         return retained_columns, [col for col, _ in rejected_columns]
 
-    def select_relevant_columns(self,
-                                min_categorical_categories: int = 2,
-                                max_categorical_categories: int = 50,
-                                max_missing_pct: float = 0.8,
-                                include_text: bool = False,
-                                include_datetime: bool = False,
-                                include_url: bool = False) -> pd.DataFrame:
+    def _is_valid_categorical_column(self, col: str) -> bool:
+        """
+        Vérifie si une colonne catégorielle est valide.
+        
+        Args:
+            col: Nom de la colonne
+            
+        Returns:
+            True si la colonne est valide
+        """
+        missing_pct = self.df[col].isna().mean()
+        unique_count = self.df[col].dropna().nunique()
+
+        return (missing_pct <= self.categorical_config.max_missing_pct and
+                unique_count >= self.categorical_config.min_categories and
+                unique_count <= self.categorical_config.max_categories)
+
+    def _get_rejection_reason(self, col: str) -> Tuple[str, str]:
+        """
+        Détermine la raison du rejet d'une colonne.
+        
+        Args:
+            col: Nom de la colonne
+            
+        Returns:
+            Tuple (colonne, raison)
+        """
+        missing_pct = self.df[col].isna().mean()
+        unique_count = self.df[col].dropna().nunique()
+        reasons = []
+
+        if missing_pct > self.categorical_config.max_missing_pct:
+            reasons.append(f"trop de valeurs manquantes ({missing_pct:.2%})")
+        if unique_count < self.categorical_config.min_categories:
+            reasons.append(f"pas assez de catégories ({unique_count})")
+        if unique_count > self.categorical_config.max_categories:
+            reasons.append(f"trop de catégories ({unique_count})")
+
+        return col, ", ".join(reasons)
+
+    def _log_categorical_filtering(self, retained: List[str], rejected: List[Tuple[str, str]]) -> None:
+        """
+        Journalise les résultats du filtrage des colonnes catégorielles.
+        
+        Args:
+            retained: Liste des colonnes retenues
+            rejected: Liste des colonnes rejetées avec leurs raisons
+        """
+        logger.info("Colonnes catégorielles retenues: %d", len(retained))
+        logger.info("Colonnes catégorielles rejetées: %d", len(rejected))
+
+        for col, reason in rejected[:10]:
+            logger.debug("Rejeté: %s - %s", col, reason)
+
+    def select_relevant_columns(self, config: ColumnSelectionConfig = ColumnSelectionConfig()) -> pd.DataFrame:
         """
         Sélectionne les colonnes pertinentes selon les critères spécifiés.
         
         Args:
-            min_categorical_categories: Nombre minimum de catégories pour les colonnes catégorielles
-            max_categorical_categories: Nombre maximum de catégories pour les colonnes catégorielles
-            max_missing_pct: Pourcentage maximum de valeurs manquantes
-            include_text: Si True, inclut les colonnes textuelles
-            include_datetime: Si True, inclut les colonnes de type datetime (False par défaut)
-            include_url: Si True, inclut les colonnes contenant "url" dans 
-            leur nom (False par défaut)
+            config: Configuration pour la sélection des colonnes
             
         Returns:
             DataFrame avec uniquement les colonnes pertinentes
         """
         logger.info("Sélection des colonnes pertinentes...")
+        self.column_selection_config = config
 
-        # Si les types de colonnes n'ont pas été détectés
         if not any(self.column_types.values()):
             self.detect_column_types()
 
-        # Filtrer les colonnes numériques avec trop de valeurs manquantes
+        columns_to_include = self._get_columns_to_include()
+        df_relevant = self.df[columns_to_include].copy()
+
+        self._log_column_selection(columns_to_include)
+
+        return df_relevant
+
+    def _get_columns_to_include(self) -> List[str]:
+        """
+        Détermine les colonnes à inclure dans le DataFrame final.
+        
+        Returns:
+            Liste des colonnes à inclure
+        """
+        columns_to_include = []
+
+        # Colonnes numériques
         numeric_cols = [col for col in self.column_types['numeric']
-                        if self.df[col].isna().mean() <= max_missing_pct]
+                        if self.df[col].isna().mean() <= self.column_selection_config.max_missing_pct]
+        columns_to_include.extend(numeric_cols)
 
-        # Filtrer les colonnes catégorielles
+        # Colonnes catégorielles
         categorical_cols, _ = self.filter_categorical_columns(
-            min_categories=min_categorical_categories,
-            max_categories=max_categorical_categories,
-            max_missing_pct=max_missing_pct
+            CategoricalConfig(
+                min_categories=self.column_selection_config.min_categorical_categories,
+                max_categories=self.column_selection_config.max_categorical_categories,
+                max_missing_pct=self.column_selection_config.max_missing_pct
+            )
         )
+        columns_to_include.extend(categorical_cols)
 
-        # Colonnes de base à inclure
-        columns_to_include = numeric_cols + categorical_cols
-
-        # Ajouter les colonnes de date si nécessaire
-        datetime_cols = []
-        if include_datetime:
+        # Colonnes de date si nécessaire
+        if self.column_selection_config.include_datetime:
             datetime_cols = [col for col in self.column_types['datetime']
-                             if self.df[col].isna().mean() <= max_missing_pct]
+                             if self.df[col].isna().mean() <= self.column_selection_config.max_missing_pct]
             columns_to_include.extend(datetime_cols)
 
-        # Ajouter les colonnes textuelles si nécessaire
-        text_cols = []
-        if include_text:
+        # Colonnes textuelles si nécessaire
+        if self.column_selection_config.include_text:
             text_cols = [col for col in self.column_types['text']
-                         if self.df[col].isna().mean() <= max_missing_pct]
+                         if self.df[col].isna().mean() <= self.column_selection_config.max_missing_pct]
             columns_to_include.extend(text_cols)
 
         # Filtrer les colonnes URL si nécessaire
-        url_cols = []
-        if not include_url:
-            # Identifier les colonnes qui contiennent "url" dans leur nom
-            url_cols = [col for col in columns_to_include if 'url' in col.lower()]
-            # Retirer ces colonnes
-            columns_to_include = [col for col in columns_to_include if col not in url_cols]
+        if not self.column_selection_config.include_url:
+            columns_to_include = [col for col in columns_to_include if 'url' not in col.lower()]
 
-        # Créer le dataframe avec les colonnes sélectionnées
-        df_relevant = self.df[columns_to_include].copy()
+        return columns_to_include
 
-        # Statistiques pour le log
-        non_url_numeric_cols = [col for col in numeric_cols if col not in url_cols]
-        non_url_categorical_cols = [col for col in categorical_cols if col not in url_cols]
+    def _log_column_selection(self, columns_to_include: List[str]) -> None:
+        """
+        Journalise les résultats de la sélection des colonnes.
+        
+        Args:
+            columns_to_include: Liste des colonnes sélectionnées
+        """
+        url_cols = [col for col in columns_to_include if 'url' in col.lower()]
+        non_url_cols = [col for col in columns_to_include if col not in url_cols]
 
         logger.info("Colonnes sélectionnées: %d sur %d",
                     len(columns_to_include), len(self.df.columns))
         logger.info(
             "Numériques: %d, Catégorielles: %d, URL filtrées: %d, Datetime: %d, Texte: %d",
-            len(non_url_numeric_cols),
-            len(non_url_categorical_cols),
+            len([col for col in non_url_cols if col in self.column_types['numeric']]),
+            len([col for col in non_url_cols if col in self.column_types['categorical_nominal'] +
+                 self.column_types['categorical_ordinal']]),
             len(url_cols),
-            len(datetime_cols) if include_datetime else 0,
-            len(text_cols) if include_text else 0
+            len([col for col in columns_to_include if col in self.column_types['datetime']]),
+            len([col for col in columns_to_include if col in self.column_types['text']])
         )
-
-        return df_relevant
 
     def get_column_stats(self) -> pd.DataFrame:
         """
@@ -355,89 +480,63 @@ class DataFrameProcessor:
         Returns:
             DataFrame contenant les statistiques des colonnes
         """
-        # Si les types de colonnes n'ont pas été détectés
         if not any(self.column_types.values()):
             self.detect_column_types()
 
         stats = []
-
         for col in self.df.columns:
-            # Déterminer le type de colonne
             col_type = next((t for t, cols in self.column_types.items() if col in cols), "unknown")
+            stats.append(self._get_column_statistics(col, col_type))
 
-            # Calculer les statistiques de base
-            missing_count = self.df[col].isna().sum()
-            missing_pct = missing_count / len(self.df)
-            unique_count = self.df[col].nunique()
-            unique_pct = unique_count / len(self.df)
-
-            # Ajouter aux statistiques
-            stats.append({
-                'column': col,
-                'type': col_type,
-                'dtype': str(self.df[col].dtype),
-                'missing_count': missing_count,
-                'missing_pct': missing_pct,
-                'unique_count': unique_count,
-                'unique_pct': unique_pct
-            })
-
-        # Créer un DataFrame à partir des statistiques
         stats_df = pd.DataFrame(stats)
+        return stats_df.sort_values(['type', 'column'])
 
-        # Trier par type et nom de colonne
-        stats_df = stats_df.sort_values(['type', 'column'])
-
-        return stats_df
-
-    def execute_process(self,
-                        text_max_categories: int = 1000,
-                        ordinal_columns: Optional[Dict[str, Dict]] = None,
-                        min_categorical_categories: int = 2,
-                        max_categorical_categories: int = 50,
-                        max_missing_pct: float = 0.8,
-                        include_text: bool = False,
-                        include_datetime: bool = False,
-                        include_url: bool = False,
-                        optimize_memory_flag: bool = True,
-                        return_stats: bool = True) -> Dict[str, pd.DataFrame]:
+    def _get_column_statistics(self, col: str, col_type: str) -> Dict:
         """
-        Exécute la chaîne complète de traitement du DataFrame en une seule méthode.
-        
-        Cette méthode combine les étapes de détection des types de colonnes, d'optimisation
-        de la mémoire et de sélection des colonnes pertinentes en une seule opération.
+        Calcule les statistiques pour une colonne.
         
         Args:
-            text_max_categories: Nombre maximum de catégories pour considérer une colonne 
-            comme textuelle
-            ordinal_columns: Dictionnaire des colonnes ordinales avec leurs mappages
-            min_categorical_categories: Nombre minimum de catégories pour les colonnes catégorielles
-            max_categorical_categories: Nombre maximum de catégories pour les colonnes catégorielles
-            max_missing_pct: Pourcentage maximum de valeurs manquantes
-            include_text: Si True, inclut les colonnes textuelles (False par défaut)
-            include_datetime: Si True, inclut les colonnes de type datetime (False par défaut)
-            include_url: Si True, inclut les colonnes contenant "url" 
-            dans leur nom (False par défaut)
-            optimize_memory_flag: Si True, applique l'optimisation de mémoire
-            return_stats: Si True, inclut les statistiques des colonnes dans le résultat
+            col: Nom de la colonne
+            col_type: Type de la colonne
             
         Returns:
-            Dictionnaire contenant les différents DataFrames générés pendant le processus
+            Dictionnaire contenant les statistiques
+        """
+        missing_count = self.df[col].isna().sum()
+        missing_pct = missing_count / len(self.df)
+        unique_count = self.df[col].nunique()
+        unique_pct = unique_count / len(self.df)
+
+        return {
+            'column': col,
+            'type': col_type,
+            'dtype': str(self.df[col].dtype),
+            'missing_count': missing_count,
+            'missing_pct': missing_pct,
+            'unique_count': unique_count,
+            'unique_pct': unique_pct
+        }
+
+    def execute_process(self, config: ProcessConfig = ProcessConfig()) -> Dict[str, pd.DataFrame]:
+        """
+        Exécute la chaîne complète de traitement du DataFrame.
+        
+        Args:
+            config: Configuration complète du processus
+            
+        Returns:
+            Dictionnaire contenant les différents DataFrames générés
         """
         logger.info("Démarrage du processus complet de traitement...")
 
         # Étape 1: Détection des types de colonnes
         logger.info("Étape 1/4: Détection des types de colonnes")
-        column_types = self.detect_column_types(
-            text_max_categories=text_max_categories,
-            ordinal_columns=ordinal_columns
-        )
+        column_types = self.detect_column_types(config.column_type_config)
 
-        # Étape 2: Optimisation de la mémoire (optionnelle)
-        if optimize_memory_flag:
+        # Étape 2: Optimisation de la mémoire
+        if config.optimize_memory_flag:
             logger.info("Étape 2/4: Optimisation de la mémoire")
-            df_optimized = self.optimize_memory()
-            # Mettre à jour le DataFrame principal avec la version optimisée
+            df_optimized = self.optimize_memory(config.memory_config)
             self.df = df_optimized
         else:
             logger.info("Étape 2/4: Optimisation de la mémoire (ignorée)")
@@ -445,34 +544,55 @@ class DataFrameProcessor:
 
         # Étape 3: Sélection des colonnes pertinentes
         logger.info("Étape 3/4: Sélection des colonnes pertinentes")
-        df_relevant = self.select_relevant_columns(
-            min_categorical_categories=min_categorical_categories,
-            max_categorical_categories=max_categorical_categories,
-            max_missing_pct=max_missing_pct,
-            include_text=include_text,
-            include_datetime=include_datetime,
-            include_url=include_url
-        )
+        df_relevant = self.select_relevant_columns(config.column_selection_config)
 
-        # Étape 4: Génération des statistiques (optionnelle)
-        if return_stats:
+        # Étape 4: Génération des statistiques
+        if config.return_stats:
             logger.info("Étape 4/4: Génération des statistiques des colonnes")
             stats_df = self.get_column_stats()
         else:
             logger.info("Étape 4/4: Génération des statistiques des colonnes (ignorée)")
             stats_df = None
 
-        # Préparer les résultats
+        results = self._prepare_results(df_optimized, df_relevant, column_types, stats_df)
+        self._log_process_summary(df_relevant, column_types)
+
+        return results
+
+    def _prepare_results(self, df_optimized: pd.DataFrame, df_relevant: pd.DataFrame,
+                         column_types: Dict[str, List[str]], stats_df: Optional[pd.DataFrame]) -> Dict[
+        str, pd.DataFrame]:
+        """
+        Prépare les résultats du processus.
+        
+        Args:
+            df_optimized: DataFrame optimisé
+            df_relevant: DataFrame avec colonnes pertinentes
+            column_types: Types de colonnes détectés
+            stats_df: Statistiques des colonnes
+            
+        Returns:
+            Dictionnaire des résultats
+        """
         results = {
             'df_optimized': df_optimized,
             'df_relevant': df_relevant,
             'column_types': column_types
         }
 
-        if return_stats:
+        if stats_df is not None:
             results['stats_df'] = stats_df
 
-        # Génération d'un résumé du processus
+        return results
+
+    def _log_process_summary(self, df_relevant: pd.DataFrame, column_types: Dict[str, List[str]]) -> None:
+        """
+        Journalise un résumé du processus.
+        
+        Args:
+            df_relevant: DataFrame avec colonnes pertinentes
+            column_types: Types de colonnes détectés
+        """
         logger.info("Processus de traitement terminé avec succès")
         logger.info("Nombre total de colonnes: %d", len(self.df.columns))
         logger.info("Nombre de colonnes pertinentes: %d", len(df_relevant.columns))
@@ -481,7 +601,6 @@ class DataFrameProcessor:
             100 * (1 - len(df_relevant.columns) / len(self.df.columns))
         )
 
-        # Résumer les types de colonnes sélectionnées
         type_counts = {}
         for col_type, cols in column_types.items():
             type_counts[col_type] = len([c for c in cols if c in df_relevant.columns])
@@ -490,5 +609,3 @@ class DataFrameProcessor:
         for col_type, count in type_counts.items():
             if count > 0:
                 logger.info(" - %s: %d colonnes", col_type, count)
-
-        return results
