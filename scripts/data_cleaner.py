@@ -233,24 +233,3 @@ def clean_dataset(df: pd.DataFrame,
                     df_clean[col] = df_clean[col].fillna("Unknown")
 
     return df_clean
-
-
-# Exemple d'utilisation:
-if __name__ == "__main__":
-    # Charger un petit échantillon du dataset pour tester
-    path = "https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz"
-    df_sample = pd.read_csv(path, nrows=1000, sep='\t', encoding="utf-8")
-
-    # Nettoyer le dataset avec la méthode simple (par défaut)
-    df_cleaned_simple = clean_dataset(df_sample)
-
-    # Nettoyer le dataset avec la méthode KNN
-    df_cleaned_knn = clean_dataset(df_sample, imputation_method='knn', n_neighbors=3)
-
-    # Afficher des informations sur les datasets nettoyés
-    print(f"Taille originale: {df_sample.shape}")
-    print(f"Taille après nettoyage (simple): {df_cleaned_simple.shape}")
-    print(f"Taille après nettoyage (KNN): {df_cleaned_knn.shape}")
-    print(f"Pourcentage de valeurs manquantes avant: {df_sample.isna().mean().mean():.2%}")
-    print(f"Pourcentage de valeurs manquantes après (simple): {df_cleaned_simple.isna().mean().mean():.2%}")
-    print(f"Pourcentage de valeurs manquantes après (KNN): {df_cleaned_knn.isna().mean().mean():.2%}")
