@@ -25,7 +25,12 @@ def identify_column_types(df: pd.DataFrame) -> dict[str, list[str]]:
     """
     # Initialize column type dictionaries
     column_types: dict[str, list[str]] = {
-        "numeric": [], "categorical_ordinal": [], "categorical_non_ordinal": [], "date": [], "text": [], "other": [],
+        "numeric": [],
+        "categorical_ordinal": [],
+        "categorical_non_ordinal": [],
+        "date": [],
+        "text": [],
+        "other": [],
     }
 
     # Known ordinal columns in OpenFoodFacts
@@ -37,8 +42,8 @@ def identify_column_types(df: pd.DataFrame) -> dict[str, list[str]]:
             column_types["numeric"].append(col)
 
         # Check for datetime columns
-        elif pd.api.types.is_datetime64_dtype(df[col].dtype) or (
-            df[col].dtype == object and ("datetime" in col.lower() or "date" in col.lower() or "time" in col.lower())):
+        elif pd.api.types.is_datetime64_dtype(df[col].dtype) or (df[col].dtype == object and (
+            "datetime" in col.lower() or "date" in col.lower() or "time" in col.lower())):
             column_types["date"].append(col)
 
         # Check for known ordinal categorical columns
@@ -46,7 +51,8 @@ def identify_column_types(df: pd.DataFrame) -> dict[str, list[str]]:
             column_types["categorical_ordinal"].append(col)
 
         # Check for categorical columns, function is_categorical_dtype isn't present in 2.2.3 so we use isinstance
-        elif isinstance(df[col].dtype, pd.CategoricalDtype) or (df[col].nunique() < 0.1 * len(df) and df[col].nunique() <= 100):
+        elif isinstance(df[col].dtype, pd.CategoricalDtype) or (
+            df[col].nunique() < 0.1 * len(df) and df[col].nunique() <= 100):
             column_types["categorical_non_ordinal"].append(col)
 
         # Check for text columns (likely non-ordinal categorical with many values)
@@ -61,7 +67,10 @@ def identify_column_types(df: pd.DataFrame) -> dict[str, list[str]]:
 
 
 def filter_categorical_by_cardinality(
-    df: pd.DataFrame, columns: list[str], max_categories: int = 50, min_categories: int = 2,
+    df: pd.DataFrame,
+    columns: list[str],
+    max_categories: int = 50,
+    min_categories: int = 2,
 ) -> list[str]:
     """
     Filter categorical columns based on their cardinality.
@@ -128,7 +137,8 @@ def downcast_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def filter_by_missing_values(
-    df: pd.DataFrame, threshold: float = 0.5,
+    df: pd.DataFrame,
+    threshold: float = 0.5,
 ) -> list[str]:
     """
     Filter columns based on the percentage of missing values.
@@ -151,7 +161,10 @@ def filter_by_missing_values(
 
 
 def select_relevant_columns(
-    df: pd.DataFrame, missing_threshold: float = 0.5, max_categories: int = 50, min_categories: int = 2,
+    df: pd.DataFrame,
+    missing_threshold: float = 0.5,
+    max_categories: int = 50,
+    min_categories: int = 2,
 ) -> dict[str, list[str]]:
     """
     Select relevant columns from the DataFrame based on various criteria.
@@ -181,7 +194,10 @@ def select_relevant_columns(
 
     # Filter categorical columns by cardinality
     column_types["categorical_non_ordinal"] = filter_categorical_by_cardinality(
-        df_filtered, column_types["categorical_non_ordinal"], max_categories=max_categories, min_categories=min_categories,
+        df_filtered,
+        column_types["categorical_non_ordinal"],
+        max_categories=max_categories,
+        min_categories=min_categories,
     )
 
     return column_types
@@ -223,7 +239,10 @@ def filter_dataframe(
 
     # Select relevant columns
     column_types = select_relevant_columns(
-        df, missing_threshold=missing_threshold, max_categories=max_categories, min_categories=min_categories,
+        df,
+        missing_threshold=missing_threshold,
+        max_categories=max_categories,
+        min_categories=min_categories,
     )
 
     # Collect columns to keep
@@ -257,7 +276,11 @@ def get_column_info(df: pd.DataFrame) -> pd.DataFrame:
     """
     # Initialize data
     data: dict[str, list[Any]] = {
-        "column_name": [], "dtype": [], "unique_values": [], "missing_percentage": [], "memory_usage_mb": [],
+        "column_name": [],
+        "dtype": [],
+        "unique_values": [],
+        "missing_percentage": [],
+        "memory_usage_mb": [],
     }
 
     # Collect information
