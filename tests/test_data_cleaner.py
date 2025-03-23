@@ -5,21 +5,17 @@ Ce module teste les fonctionnalités de nettoyage de données et d'imputation
 fournies par le module data_cleaner, en comparant les méthodes d'imputation
 simple et KNN sur un échantillon de données OpenFoodFacts.
 """
-# Imports standard
-import os
-import sys
-import time
-import warnings
+try:
+    import os
+    import sys
+    import time
+    import warnings
 
-# Ajouter le répertoire parent au chemin de recherche de modules Python
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Imports tiers
-import pandas as pd
-# Note: numpy n'est pas utilisé mais pourrait l'être pour des analyses plus avancées
-
-# Import local
-from scripts.data_cleaner import clean_dataset
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    import pandas as pd
+    from scripts.data_cleaner import clean_dataset
+except ImportError as e:
+    print(f"Erreur lors de l'importation des modules : {e}")
 
 
 def main():

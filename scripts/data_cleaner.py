@@ -4,15 +4,15 @@ Module de nettoyage de données pour les datasets d'OpenFoodFacts.
 Ce module fournit des fonctions pour nettoyer et imputer les valeurs manquantes
 dans les datasets OpenFoodFacts en utilisant différentes méthodes.
 """
-# Imports standard
-import warnings
-from typing import List, Optional, Literal, Dict, Any, Tuple
-
-# Imports tiers
-import numpy as np
-import pandas as pd
-from sklearn.impute import KNNImputer
-from sklearn.preprocessing import StandardScaler
+try:
+    import warnings
+    from typing import List, Optional, Literal, Dict, Any, Tuple
+    import numpy as np
+    import pandas as pd
+    from sklearn.impute import KNNImputer
+    from sklearn.preprocessing import StandardScaler
+except ImportError as e:
+    print(f"Erreur lors de l'importation des modules : {e}")
 
 
 def clean_dataset(
