@@ -119,18 +119,40 @@ def optimize_kmeans(data, n_clusters, method='multiple_init', **kwargs):
     --------
     KMeans : Le meilleur modèle K-means trouvé
     """
+    # Configuration par défaut pour chaque méthode
+    default_configs = {
+        'multiple_init': {
+            'n_init': 10,
+            'max_iter': 300,
+            'init': 'k-means++'
+        },
+        'grid_search': {
+            'param_grid': {
+                'init': ['k-means++', 'random'],
+                'n_init': [10, 20],
+                'max_iter': [200, 300, 400],
+                'algorithm': ['elkan', 'full']
+            },
+            'cv': 3
+        },
+        'elkan': {
+            'algorithms': ['elkan', 'full']
+        }
+    }
+
+    # Mise à jour des configurations avec les kwargs
+    config = default_configs.get(method, {})
+    config.update(kwargs)
+
     if method == 'multiple_init':
-        n_init = kwargs.get('n_init', 10)
-        max_iter = kwargs.get('max_iter', 300)
-
-        best_score = -np.inf
         best_model = None
+        best_score = -np.inf
 
-        for _ in range(n_init):
+        for _ in range(config['n_init']):
             kmeans = KMeans(
                 n_clusters=n_clusters,
-                init='k-means++',
-                max_iter=max_iter,
+                init=config['init'],
+                max_iter=config['max_iter'],
                 random_state=None
             )
             kmeans.fit(data)
@@ -144,19 +166,11 @@ def optimize_kmeans(data, n_clusters, method='multiple_init', **kwargs):
         return best_model
 
     if method == 'grid_search':
-        param_grid = kwargs.get('param_grid', {
-            'init': ['k-means++', 'random'],
-            'n_init': [10, 20],
-            'max_iter': [200, 300, 400],
-            'algorithm': ['elkan', 'full']
-        })
-        cv = kwargs.get('cv', 3)
-
         kmeans = KMeans(n_clusters=n_clusters, random_state=42)
         grid_search = GridSearchCV(
             kmeans,
-            param_grid=param_grid,
-            cv=cv,
+            param_grid=config['param_grid'],
+            cv=config['cv'],
             scoring='silhouette'
         )
         grid_search.fit(data)
@@ -164,12 +178,10 @@ def optimize_kmeans(data, n_clusters, method='multiple_init', **kwargs):
         return grid_search.best_estimator_
 
     if method == 'elkan':
-        # Compare les performances des algorithmes elkan et full
-        algorithms = ['elkan', 'full']
-        best_score = -np.inf
         best_model = None
+        best_score = -np.inf
 
-        for algo in algorithms:
+        for algo in config['algorithms']:
             kmeans = KMeans(
                 n_clusters=n_clusters,
                 algorithm=algo,
@@ -238,6 +250,19 @@ def train_kmeans(data, n_clusters=None, optimize=True, save=True, **kwargs):
         - Le modèle K-means entraîné
         - Dictionnaire contenant les informations sur l'entraînement
     """
+    # Configuration par défaut
+    default_config = {
+        'method': 'silhouette',
+        'k_max': 10,
+        'k_min': 2,
+        'optimize_method': 'multiple_init',
+        'model_path': 'models/kmeans_model.pkl'
+    }
+
+    # Mise à jour de la configuration avec les kwargs
+    config = default_config.copy()
+    config.update(kwargs)
+
     # Création du dossier models si nécessaire
     if save:
         os.makedirs('models', exist_ok=True)
@@ -248,35 +273,39 @@ def train_kmeans(data, n_clusters=None, optimize=True, save=True, **kwargs):
 
     # Détermination du nombre optimal de clusters si nécessaire
     if optimize and n_clusters is None:
-        method = kwargs.get('method', 'silhouette')
-        k_max = kwargs.get('k_max', 10)
-        k_min = kwargs.get('k_min', 2)
-
-        scores = find_optimal_clusters(scaled_data, k_max=k_max, k_min=k_min, method=method)
-        plot_cluster_scores(scores, method)
+        scores = find_optimal_clusters(
+            scaled_data,
+            k_max=config['k_max'],
+            k_min=config['k_min'],
+            method=config['method']
+        )
+        plot_cluster_scores(scores, config['method'])
 
         # Sélection du nombre optimal de clusters
         n_clusters = max(scores.items(), key=lambda x: x[1])[0]
         print(f"Nombre optimal de clusters trouvé : {n_clusters}")
 
     # Optimisation des paramètres
-    optimize_method = kwargs.get('optimize_method', 'multiple_init')
-    model = optimize_kmeans(scaled_data, n_clusters=n_clusters, method=optimize_method, **kwargs)
+    model = optimize_kmeans(
+        scaled_data,
+        n_clusters=n_clusters,
+        method=config['optimize_method'],
+        **kwargs
+    )
 
     # Sauvegarde du modèle et du scaler si demandé
     if save:
-        model_path = kwargs.get('model_path', 'models/kmeans_model.pkl')
-        scaler_path = os.path.join(os.path.dirname(model_path), 'scaler.pkl')
+        scaler_path = os.path.join(os.path.dirname(config['model_path']), 'scaler.pkl')
 
-        save_model(model, model_path)
+        save_model(model, config['model_path'])
         joblib.dump(scaler, scaler_path)
-        print(f"Modèle sauvegardé dans {model_path}")
+        print(f"Modèle sauvegardé dans {config['model_path']}")
         print(f"Scaler sauvegardé dans {scaler_path}")
 
     # Création du dictionnaire d'informations
     info = {
         'n_clusters': n_clusters,
-        'optimize_method': optimize_method,
+        'optimize_method': config['optimize_method'],
         'scaler': scaler,
         'silhouette_score': silhouette_score(scaled_data, model.labels_),
         'calinski_harabasz_score': calinski_harabasz_score(scaled_data, model.labels_),
