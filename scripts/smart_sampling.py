@@ -176,7 +176,7 @@ def smart_sample(
         raise ValueError("Le DataFrame est vide")
         
     if target_size is None:
-        target_size = len(df) // 4  # 25% par défaut
+        target_size = len(df) // 4
     
     # Sélection automatique des colonnes
     stratify_cols, numeric_cols = _auto_select_columns(df)
@@ -205,33 +205,17 @@ def smart_sample(
     
     # Calcul du nombre de splits optimal
     min_class_size = df['combined_strata'].value_counts().min()
-    n_splits = min(
-        max(2, len(df) // target_size),
-        min_class_size
-    )
+    target_ratio = target_size / len(df)
     
-    # Initialisation de StratifiedKFold avec le nombre optimal de splits
-    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    # Assurer au moins 2 splits et pas plus que la plus petite classe
+    n_splits = max(2, min(
+        int(1 / target_ratio),  # Nombre de splits basé sur le ratio cible
+        min_class_size // 2     # Limité par la taille de la plus petite classe
+    ))
     
-    # Sélection d'un fold
-    X = df.drop('combined_strata', axis=1)
-    y = df['combined_strata']
-    
-    # Sélection du meilleur fold pour atteindre la taille cible
-    best_sample = None
-    best_diff = float('inf')
-    
-    for train_idx, test_idx in skf.split(X, y):
-        fold_sample = df.iloc[test_idx]
-        size_diff = abs(len(fold_sample) - target_size)
-        
-        if size_diff < best_diff:
-            best_diff = size_diff
-            best_sample = fold_sample
-    
-    # Si aucun fold n'est assez grand, combiner plusieurs folds
-    if best_sample is None or len(best_sample) < target_size * 0.9:
-        # Échantillonnage aléatoire stratifié comme fallback
+    # Si le nombre de splits est trop grand par rapport aux données
+    if n_splits > min_class_size // 2:
+        # Utiliser l'échantillonnage stratifié direct
         sample = df.groupby('combined_strata', group_keys=False).apply(
             lambda x: x.sample(
                 n=max(1, int(len(x) * target_size / len(df))),
@@ -239,6 +223,24 @@ def smart_sample(
             )
         )
     else:
+        # Utiliser StratifiedKFold
+        skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        
+        # Sélection du meilleur fold
+        X = df.drop('combined_strata', axis=1)
+        y = df['combined_strata']
+        
+        best_sample = None
+        best_diff = float('inf')
+        
+        for train_idx, test_idx in skf.split(X, y):
+            fold_sample = df.iloc[test_idx]
+            size_diff = abs(len(fold_sample) - target_size)
+            
+            if size_diff < best_diff:
+                best_diff = size_diff
+                best_sample = fold_sample
+        
         sample = best_sample
     
     # Nettoyage
