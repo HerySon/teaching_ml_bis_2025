@@ -4,8 +4,8 @@ Utility functions for imputing missing values in the OpenFoodFacts dataset.
 
 try:
     import pandas as pd
-except ImportError:
-    raise ImportError("pandas is required for this module")
+except ImportError as exc:
+    raise ImportError("pandas is required for this module") from exc
 
 
 def identify_imputable_columns(df: pd.DataFrame, threshold: float = 0.5) -> dict[str, str]:
@@ -206,7 +206,8 @@ def impute_by_group(
     missing_before = df[column].isnull().sum()
     missing_after = df_imputed[column].isnull().sum()
     print(
-        f"Imputed {missing_before - missing_after} missing values in {column} using {strategy} by {group_by}",
+        f"Imputed {missing_before - missing_after} missing values in {column} "
+        f"using {strategy} by {group_by}",
     )
 
     return df_imputed

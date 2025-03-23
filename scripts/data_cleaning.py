@@ -3,10 +3,11 @@ Data cleaning script for OpenFoodFacts dataset.
 This script implements various methods to clean problematic values in the dataset.
 """
 
-import numpy as np
-import pandas as pd
 import re
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 
 def load_data(path: str, nrows: int | None = None) -> pd.DataFrame:
@@ -160,7 +161,7 @@ def clean_serving_size(df: pd.DataFrame) -> pd.DataFrame:
     # Create a new column with extracted quantities
     df['serving_quantity'] = df['serving_size'].apply(extract_quantity_from_serving_size)
 
-    print(f"Extracted quantities from serving_size column")
+    print("Extracted quantities from serving_size column")
     return df
 
 
@@ -227,7 +228,7 @@ def clean_data(
     df_clean = remove_irrelevant_columns(df)
 
     # Identify columns with missing values
-    missing_values = identify_missing_values(df_clean)
+    missing_info = identify_missing_values(df_clean)
 
     # Clean serving_size column and extract quantities
     df_clean = clean_serving_size(df_clean)

@@ -3,20 +3,21 @@ Main script to clean OpenFoodFacts dataset by integrating all cleaning functiona
 """
 
 import argparse
-import pandas as pd
 from pathlib import Path
 
-from data_cleaning import (
+import pandas as pd
+
+from .data_cleaning import (
     load_data,
     identify_irrelevant_columns,
     remove_irrelevant_columns,
     fix_data_errors
 )
-from imputation import (
+from .imputation import (
     identify_imputable_columns,
     impute_columns
 )
-from extract_patterns import (
+from .extract_patterns import (
     extract_patterns
 )
 
@@ -82,7 +83,7 @@ def clean_openfoodfacts_dataset(
     print(f"  - Cleaned dataset shape: {df_clean.shape[0]} rows and {df_clean.shape[1]} columns")
     print(f"  - Removed {df.shape[1] - df_clean.shape[1]} irrelevant columns")
     print(f"  - Added {len([col for col in df_clean.columns if col not in df.columns])}"
-          f"new features")
+          f" new features")
 
     # Calculate percentage of missing values before and after cleaning
     missing_before = df.isnull().mean().mean() * 100
