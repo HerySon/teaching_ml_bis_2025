@@ -63,7 +63,8 @@ def detect_food_outliers_by_nutrient_sum(data: pd.DataFrame, threshold: float = 
 
     Args:
         data: OpenFoodFacts DataFrame
-        threshold: Maximum sum of macronutrients in g per 100g (default 105 to allow small measurement errors)
+        threshold: Maximum sum of macronutrients in g per 100g
+            (default 105 to allow small measurement errors)
 
     Returns:
         Boolean series indicating outliers

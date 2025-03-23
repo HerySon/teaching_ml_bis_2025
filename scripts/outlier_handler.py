@@ -1,3 +1,7 @@
+"""
+Outlier detection and handling module.
+"""
+
 try:
     import numpy as np
     import pandas as pd
