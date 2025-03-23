@@ -1,7 +1,3 @@
-"""
-Module for detecting and handling outliers in datasets.
-"""
-
 try:
     import numpy as np
     import pandas as pd
@@ -62,7 +58,11 @@ def detect_outliers_isolation_forest(data: pd.DataFrame, contamination: float = 
     return pd.Series(model.fit_predict(data) == -1, index=data.index)
 
 
-def detect_outliers_lof(data: pd.DataFrame, n_neighbors: int = 20, contamination: float = 0.1) -> pd.Series:
+def detect_outliers_lof(
+    data: pd.DataFrame,
+    n_neighbors: int = 20,
+    contamination: float = 0.1
+) -> pd.Series:
     """
     Detect outliers using Local Outlier Factor algorithm.
 
@@ -95,6 +95,36 @@ def get_outlier_strategies():
     }
 
 
+def _apply_boundary_values(
+    result: pd.DataFrame,
+    col: str,
+    mask: pd.Series,
+    lower_bound: float,
+    upper_bound: float
+) -> pd.DataFrame:
+    """
+    Apply boundary values to outliers in a specific column.
+
+    Args:
+        result: DataFrame to modify
+        col: Column name to process
+        mask: Boolean mask for outliers
+        lower_bound: Lower boundary value
+        upper_bound: Upper boundary value
+
+    Returns:
+        Modified DataFrame
+    """
+    for idx in result[mask].index:
+        val = result.loc[idx, col]
+        if isinstance(val, (int, float)) and not np.isnan(val):
+            if val < lower_bound:
+                result.loc[idx, col] = lower_bound
+            elif val > upper_bound:
+                result.loc[idx, col] = upper_bound
+    return result
+
+
 def handle_outliers(
     data: pd.DataFrame,
     outlier_mask: pd.Series,
@@ -118,42 +148,49 @@ def handle_outliers(
 
     result = data.copy()
 
+    # Return immediately for simple cases
     if strategy == "keep":
-        # Do nothing
         return result
 
-    elif strategy == "remove":
+    if strategy == "remove":
         return result[~outlier_mask]
 
-    elif strategy.startswith("impute_"):
-        for col in columns:
-            mask = outlier_mask & ~result[col].isna()
+    # Different imputation strategies
+    if not strategy.startswith("impute_"):
+        raise ValueError(f"Unknown strategy: {strategy}")
 
-            if strategy == "impute_mean":
-                value = result.loc[~outlier_mask, col].mean()
-            elif strategy == "impute_median":
-                value = result.loc[~outlier_mask, col].median()
-            elif strategy == "impute_mode":
-                value = result.loc[~outlier_mask, col].mode()[0]
-            elif strategy == "impute_boundary":
-                series = result[col]
-                q1 = series.quantile(0.25)
-                q3 = series.quantile(0.75)
-                iqr = q3 - q1
-                lower_bound = q1 - 1.5 * iqr
-                upper_bound = q3 + 1.5 * iqr
+    for col in columns:
+        mask = outlier_mask & ~result[col].isna()
 
-                # Apply boundary values only to numeric values
-                for idx in result[mask].index:
-                    val = result.loc[idx, col]
-                    if isinstance(val, (int, float)) and not np.isnan(val):
-                        if val < lower_bound:
-                            result.loc[idx, col] = lower_bound
-                        elif val > upper_bound:
-                            result.loc[idx, col] = upper_bound
-                continue
+        # Skip empty columns
+        if mask.sum() == 0:
+            continue
 
+        # Handle different imputation strategies
+        if strategy == "impute_mean":
+            value = result.loc[~outlier_mask, col].mean()
             result.loc[mask, col] = value
+
+        elif strategy == "impute_median":
+            value = result.loc[~outlier_mask, col].median()
+            result.loc[mask, col] = value
+
+        elif strategy == "impute_mode":
+            value = result.loc[~outlier_mask, col].mode()[0]
+            result.loc[mask, col] = value
+
+        elif strategy == "impute_boundary":
+            series = result[col]
+            q1 = series.quantile(0.25)
+            q3 = series.quantile(0.75)
+            iqr = q3 - q1
+            lower_bound = q1 - 1.5 * iqr
+            upper_bound = q3 + 1.5 * iqr
+
+            # Apply boundary values through helper function
+            result = _apply_boundary_values(
+                result, col, mask, lower_bound, upper_bound
+            )
 
     return result
 
@@ -229,7 +266,12 @@ class OutlierDetector:
             }
         return summary
 
-    def handle_outliers(self, method: str, strategy: str, columns: list[str] | None = None) -> pd.DataFrame:
+    def handle_outliers(
+        self,
+        method: str,
+        strategy: str,
+        columns: list[str] | None = None
+    ) -> pd.DataFrame:
         """
         Handle outliers using the specified strategy.
 
@@ -242,7 +284,9 @@ class OutlierDetector:
             DataFrame with handled outliers
         """
         if method not in self.outlier_masks:
-            raise ValueError(f"Method {method} not used for detection yet. Call detect_outliers first.")
+            raise ValueError(
+                f"Method {method} not used for detection yet. Call detect_outliers first."
+            )
 
         return handle_outliers(
             self.data,

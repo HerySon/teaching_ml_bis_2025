@@ -1,10 +1,14 @@
+"""Testing module for outlier detection and handling functionality."""
+
 try:
     import pandas as pd
     import numpy as np
-    from outlier_handler import OutlierDetector, get_outlier_strategies
-    from food_outlier_detector import FoodOutlierDetector, NUTRIENT_RANGES
+    from .outlier_handler import OutlierDetector, get_outlier_strategies
+    from .food_outlier_detector import FoodOutlierDetector, NUTRIENT_RANGES
 except ImportError as exc:
-    raise ImportError('pandas, numpy, outlier_handler and food_outlier_detector are required') from exc
+    raise ImportError(
+        'pandas, numpy, outlier_handler and food_outlier_detector are required'
+    ) from exc
 
 
 def test_generic_outlier_detection():
@@ -40,7 +44,10 @@ def test_generic_outlier_detection():
         print(f"Strategy: {strategy_name} ({description})")
         result = detector.handle_outliers("tukey", strategy_name)
         if strategy_name == "remove":
-            print(f"  Remaining rows: {len(result)} (removed {len(data) - len(result)} rows)")
+            print(
+                f"  Remaining rows: {len(result)} "
+                f"(removed {len(data) - len(result)} rows)"
+            )
         elif strategy_name.startswith("impute_"):
             # Check if outliers have been handled
             original_value = data.loc[0, 'feature1']
@@ -96,12 +103,17 @@ def test_food_outlier_detection():
     for strategy_name in strategies:
         result = detector.handle_outliers("food_combined", strategy_name)
         if strategy_name == "remove":
-            print(f"Strategy {strategy_name}: {len(result)} remaining rows (removed {len(data) - len(result)} rows)")
+            print(
+                f"Strategy {strategy_name}: {len(result)} remaining rows "
+                f"(removed {len(data) - len(result)} rows)"
+            )
         elif strategy_name == "impute_median":
             # Check if outliers have been handled
             original_value = data.loc[0, 'fat_100g']
             new_value = result.loc[0, 'fat_100g']
-            print(f"Strategy {strategy_name}: fat_100g example {original_value:.2f} -> {new_value:.2f}")
+            print(
+                f"Strategy {strategy_name}: fat_100g example {original_value:.2f} -> {new_value:.2f}"
+            )
         else:
             print(f"Strategy {strategy_name}: {len(result)} rows")
 
@@ -109,10 +121,10 @@ def test_food_outlier_detection():
 def print_nutrient_ranges():
     """Display the normal ranges for nutrients."""
     print("\n--- Nutrient value ranges ---")
-    print("{:<25} {:<10} {:<10}".format("Nutrient", "Min", "Max"))
+    print(f"{'Nutrient':<25} {'Min':<10} {'Max':<10}")
     print("-" * 50)
     for nutrient, (min_val, max_val) in sorted(NUTRIENT_RANGES.items()):
-        print("{:<25} {:<10} {:<10}".format(nutrient, min_val, max_val))
+        print(f"{nutrient:<25} {min_val:<10} {max_val:<10}")
 
 
 if __name__ == "__main__":

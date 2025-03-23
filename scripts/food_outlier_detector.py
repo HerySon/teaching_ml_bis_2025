@@ -4,10 +4,9 @@ Food-specific outlier detection and handling for OpenFoodFacts dataset.
 
 try:
     import pandas as pd
-    import numpy as np
     from outlier_handler import OutlierDetector
 except ImportError as exc:
-    raise ImportError('pandas, numpy, and outlier_handler are required for this module') from exc
+    raise ImportError('pandas and outlier_handler are required for this module') from exc
 
 
 # Define reasonable ranges for various nutrients (per 100g)
@@ -146,7 +145,7 @@ def detect_food_outliers_by_category_norms(
             if std == 0 or pd.isna(std):
                 continue
 
-            # Calculate z-scores for the entire column, but will only use for items in this category
+            # Calculate z-scores for the entire column
             all_z_scores = (numeric_data - mean) / std
 
             # Create a mask for this nutrient's outliers in this category
@@ -162,15 +161,6 @@ class FoodOutlierDetector(OutlierDetector):
     """
     Class for detecting outliers in food datasets, extending OutlierDetector.
     """
-
-    def __init__(self, data: pd.DataFrame):
-        """
-        Initialize with a dataframe.
-
-        Args:
-            data: DataFrame to analyze
-        """
-        super().__init__(data)
 
     def detect_outliers(self, method: str = "tukey", **kwargs) -> pd.Series:
         """
