@@ -1,14 +1,24 @@
-import sys
+"""
+Module de test pour le module data_cleaner.
+
+Ce module teste les fonctionnalités de nettoyage de données et d'imputation
+fournies par le module data_cleaner, en comparant les méthodes d'imputation
+simple et KNN sur un échantillon de données OpenFoodFacts.
+"""
+# Imports standard
 import os
-import pandas as pd
-import numpy as np
+import sys
 import time
 import warnings
 
 # Ajouter le répertoire parent au chemin de recherche de modules Python
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Maintenant, on peut importer le module
+# Imports tiers
+import pandas as pd
+# Note: numpy n'est pas utilisé mais pourrait l'être pour des analyses plus avancées
+
+# Import local
 from scripts.data_cleaner import clean_dataset
 
 
@@ -25,7 +35,8 @@ def main():
     try:
         path = "https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz"
         df_sample = pd.read_csv(path, nrows=500, sep='\t', encoding="utf-8")
-        print(f"Échantillon chargé avec succès : {df_sample.shape[0]} lignes et {df_sample.shape[1]} colonnes")
+        print(f"Échantillon chargé avec succès : {df_sample.shape[0]} lignes et "
+              f"{df_sample.shape[1]} colonnes")
     except Exception as e:
         print(f"Erreur lors du chargement des données : {e}")
         return
@@ -40,9 +51,9 @@ def main():
     end_time_simple = time.time()
     time_simple = end_time_simple - start_time_simple
 
-    # Calculer le pourcentage de valeurs manquantes après le nettoyage avec la méthode simple
-    missing_after_simple = df_cleaned_simple.isna().sum().sum() / (
-                df_cleaned_simple.shape[0] * df_cleaned_simple.shape[1])
+    # Calculer le pourcentage de valeurs manquantes après le nettoyage (méthode simple)
+    missing_after_simple = (df_cleaned_simple.isna().sum().sum() / 
+                          (df_cleaned_simple.shape[0] * df_cleaned_simple.shape[1]))
 
     # Test avec la méthode d'imputation KNN
     print("\nNettoyage du dataset avec la méthode d'imputation KNN...")
@@ -51,15 +62,17 @@ def main():
     end_time_knn = time.time()
     time_knn = end_time_knn - start_time_knn
 
-    # Calculer le pourcentage de valeurs manquantes après le nettoyage avec la méthode KNN
-    missing_after_knn = df_cleaned_knn.isna().sum().sum() / (df_cleaned_knn.shape[0] * df_cleaned_knn.shape[1])
+    # Calculer le pourcentage de valeurs manquantes après le nettoyage (méthode KNN)
+    missing_after_knn = (df_cleaned_knn.isna().sum().sum() / 
+                        (df_cleaned_knn.shape[0] * df_cleaned_knn.shape[1]))
 
     # Afficher les résultats de comparaison
     print("\n=== Résultats de comparaison des méthodes d'imputation ===")
     print(f"Taille originale : {df_sample.shape[0]} lignes x {df_sample.shape[1]} colonnes")
-    print(
-        f"Taille après nettoyage (simple) : {df_cleaned_simple.shape[0]} lignes x {df_cleaned_simple.shape[1]} colonnes")
-    print(f"Taille après nettoyage (KNN) : {df_cleaned_knn.shape[0]} lignes x {df_cleaned_knn.shape[1]} colonnes")
+    print(f"Taille après nettoyage (simple) : {df_cleaned_simple.shape[0]} lignes x "
+          f"{df_cleaned_simple.shape[1]} colonnes")
+    print(f"Taille après nettoyage (KNN) : {df_cleaned_knn.shape[0]} lignes x "
+          f"{df_cleaned_knn.shape[1]} colonnes")
     print(f"Pourcentage de valeurs manquantes avant : {missing_before:.2%}")
     print(f"Pourcentage de valeurs manquantes après (simple) : {missing_after_simple:.2%}")
     print(f"Pourcentage de valeurs manquantes après (KNN) : {missing_after_knn:.2%}")
@@ -80,7 +93,8 @@ def main():
 
         # Calculer la différence moyenne globale
         overall_mean_diff = mean_diff_by_col.mean()
-        print(f"Différence moyenne des valeurs imputées (colonnes numériques) : {overall_mean_diff:.4f}")
+        print(f"Différence moyenne des valeurs imputées (colonnes numériques) : "
+              f"{overall_mean_diff:.4f}")
 
         # Afficher les colonnes avec les plus grandes différences
         print("\nTop 5 colonnes avec les plus grandes différences d'imputation :")
@@ -93,7 +107,7 @@ def main():
         if sample_cols > 0:
             print("\nExemple de différences d'imputation pour quelques colonnes numériques:")
             for col in mean_diff_by_col.sort_values(ascending=False).index[:sample_cols]:
-                # Sélectionner les lignes où les valeurs étaient initialement manquantes dans le dataset original
+                # Sélectionner les lignes où les valeurs étaient initialement manquantes
                 mask = df_sample[col].isna()
                 # Vérifier s'il y a des valeurs manquantes pour cette colonne
                 if mask.any():
