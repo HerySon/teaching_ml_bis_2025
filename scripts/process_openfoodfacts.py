@@ -3,15 +3,14 @@ Script pour le traitement automatique des données OpenFoodFacts
 Ce script utilise la classe DataFrameProcessor pour filtrer et sélectionner
 les colonnes pertinentes du dataset OpenFoodFacts.
 """
-
-import argparse
-import logging
-import time
-
-import pandas as pd
-
-# Importer notre classe DataFrameProcessor
-from data_processor import DataFrameProcessor
+try:
+    import argparse
+    import logging
+    import pandas as pd
+    import time
+    from data_processor import DataFrameProcessor
+except ImportError as e:
+    print(f"Erreur lors de l'importation des modules : {e}")
 
 
 def parse_arguments():

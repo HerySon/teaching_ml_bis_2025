@@ -5,12 +5,13 @@ Ce module fournit une classe DataFrameProcessor qui permet de détecter automati
 les types de colonnes, d'optimiser la mémoire et de sélectionner les colonnes pertinentes
 pour l'analyse de données.
 """
-
-import logging
-from typing import Dict, List, Tuple, Optional
-
-import numpy as np
-import pandas as pd
+try:
+    import logging
+    import numpy as np
+    import pandas as pd
+    from typing import Dict, List, Tuple, Optional
+except ImportError as e:
+    print(f"Erreur lors de l'importation des modules : {e}")
 
 # Configuration du logger
 logging.basicConfig(
