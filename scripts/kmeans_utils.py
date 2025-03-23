@@ -1,22 +1,30 @@
-import numpy as np
-import pandas as pd
+"""
+Module d'utilitaires pour l'analyse et l'optimisation de K-means.
+Fournit des fonctions pour l'entraînement, l'optimisation et la prédiction avec K-means.
+"""
+
+import os
+
 import matplotlib.pyplot as plt
+import numpy as np
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bouldin_score, adjusted_rand_score
+from sklearn.metrics import (
+    calinski_harabasz_score,
+    davies_bouldin_score,
+    silhouette_score,
+)
 from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import StandardScaler
 import joblib
-import os
 
 
-# 1. Fonctions d'analyse et d'optimisation
-def find_optimal_clusters(X, k_max=10, k_min=2, method='silhouette'):
+def find_optimal_clusters(data, k_max=10, k_min=2, method='silhouette'):
     """
     Détermine le nombre optimal de clusters en utilisant différentes métriques.
     
     Paramètres:
     -----------
-    X : array-like
+    data : array-like
         Les données à analyser
     k_max : int
         Nombre maximum de clusters à tester
@@ -37,19 +45,21 @@ def find_optimal_clusters(X, k_max=10, k_min=2, method='silhouette'):
 
     for k in range(k_min, k_max + 1):
         kmeans = KMeans(n_clusters=k, random_state=42)
-        labels = kmeans.fit_predict(X)
+        labels = kmeans.fit_predict(data)
 
         if method == 'silhouette':
-            score = silhouette_score(X, labels)
+            score = silhouette_score(data, labels)
         elif method == 'calinski_harabasz':
-            score = calinski_harabasz_score(X, labels)
+            score = calinski_harabasz_score(data, labels)
         elif method == 'davies_bouldin':
-            score = -davies_bouldin_score(X, labels)  # On inverse car plus bas = meilleur
+            score = -davies_bouldin_score(data, labels)  # On inverse car plus bas = meilleur
         elif method == 'inertia':
             score = -kmeans.inertia_  # On inverse car plus bas = meilleur
         else:
             raise ValueError(
-                "Méthode non supportée. Utilisez 'silhouette', 'calinski_harabasz', 'davies_bouldin' ou 'inertia'")
+                "Méthode non supportée. Utilisez 'silhouette', 'calinski_harabasz', "
+                "'davies_bouldin' ou 'inertia'"
+            )
 
         scores[k] = score
 
@@ -76,20 +86,20 @@ def plot_cluster_scores(scores, method):
     plt.show()
 
 
-def optimize_kmeans(X, n_clusters, method='multiple_init', **kwargs):
+def optimize_kmeans(data, n_clusters, method='multiple_init', **kwargs):
     """
     Optimise les paramètres de K-means en utilisant différentes stratégies.
     
     Paramètres:
     -----------
-    X : array-like
+    data : array-like
         Les données à analyser
     n_clusters : int
         Nombre de clusters souhaité
     method : str
         Méthode d'optimisation à utiliser :
         - 'multiple_init' : Teste plusieurs initialisations (défaut)
-        - 'grid_search' : Utilise GridSearchCV pour tester plusieurs combinaisons de paramètres
+        - 'grid_search' : Utilise GridSearchCV pour tester plusieurs combinaisons
         - 'elkan' : Compare les algorithmes 'elkan' et 'full'
         - 'custom_init' : Utilise des centres initiaux personnalisés
     
@@ -121,9 +131,9 @@ def optimize_kmeans(X, n_clusters, method='multiple_init', **kwargs):
                 max_iter=max_iter,
                 random_state=None
             )
-            kmeans.fit(X)
+            kmeans.fit(data)
 
-            score = silhouette_score(X, kmeans.labels_)
+            score = silhouette_score(data, kmeans.labels_)
 
             if score > best_score:
                 best_score = score
@@ -131,7 +141,7 @@ def optimize_kmeans(X, n_clusters, method='multiple_init', **kwargs):
 
         return best_model
 
-    elif method == 'grid_search':
+    if method == 'grid_search':
         param_grid = kwargs.get('param_grid', {
             'init': ['k-means++', 'random'],
             'n_init': [10, 20],
@@ -147,11 +157,11 @@ def optimize_kmeans(X, n_clusters, method='multiple_init', **kwargs):
             cv=cv,
             scoring='silhouette'
         )
-        grid_search.fit(X)
+        grid_search.fit(data)
 
         return grid_search.best_estimator_
 
-    elif method == 'elkan':
+    if method == 'elkan':
         # Compare les performances des algorithmes elkan et full
         algorithms = ['elkan', 'full']
         best_score = -np.inf
@@ -163,9 +173,9 @@ def optimize_kmeans(X, n_clusters, method='multiple_init', **kwargs):
                 algorithm=algo,
                 random_state=42
             )
-            kmeans.fit(X)
+            kmeans.fit(data)
 
-            score = silhouette_score(X, kmeans.labels_)
+            score = silhouette_score(data, kmeans.labels_)
 
             if score > best_score:
                 best_score = score
@@ -173,7 +183,7 @@ def optimize_kmeans(X, n_clusters, method='multiple_init', **kwargs):
 
         return best_model
 
-    elif method == 'custom_init':
+    if method == 'custom_init':
         init_centers = kwargs.get('init_centers')
         if init_centers is None:
             raise ValueError("init_centers doit être fourni pour la méthode 'custom_init'")
@@ -184,22 +194,23 @@ def optimize_kmeans(X, n_clusters, method='multiple_init', **kwargs):
             n_init=1,
             random_state=42
         )
-        kmeans.fit(X)
+        kmeans.fit(data)
 
         return kmeans
 
-    else:
-        raise ValueError("Méthode non supportée. Utilisez 'multiple_init', 'grid_search', 'elkan' ou 'custom_init'")
+    raise ValueError(
+        "Méthode non supportée. Utilisez 'multiple_init', 'grid_search', "
+        "'elkan' ou 'custom_init'"
+    )
 
 
-# 2. Fonctions principales d'entraînement et de prédiction
-def train_kmeans(X, n_clusters=None, optimize=True, save=True, **kwargs):
+def train_kmeans(data, n_clusters=None, optimize=True, save=True, **kwargs):
     """
     Fonction principale pour entraîner un modèle K-means.
     
     Paramètres:
     -----------
-    X : array-like
+    data : array-like
         Les données à analyser
     n_clusters : int, optional
         Nombre de clusters souhaité. Si None, sera déterminé automatiquement
@@ -231,7 +242,7 @@ def train_kmeans(X, n_clusters=None, optimize=True, save=True, **kwargs):
 
     # Standardisation des données
     scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    scaled_data = scaler.fit_transform(data)
 
     # Détermination du nombre optimal de clusters si nécessaire
     if optimize and n_clusters is None:
@@ -239,7 +250,7 @@ def train_kmeans(X, n_clusters=None, optimize=True, save=True, **kwargs):
         k_max = kwargs.get('k_max', 10)
         k_min = kwargs.get('k_min', 2)
 
-        scores = find_optimal_clusters(X_scaled, k_max=k_max, k_min=k_min, method=method)
+        scores = find_optimal_clusters(scaled_data, k_max=k_max, k_min=k_min, method=method)
         plot_cluster_scores(scores, method)
 
         # Sélection du nombre optimal de clusters
@@ -248,7 +259,7 @@ def train_kmeans(X, n_clusters=None, optimize=True, save=True, **kwargs):
 
     # Optimisation des paramètres
     optimize_method = kwargs.get('optimize_method', 'multiple_init')
-    model = optimize_kmeans(X_scaled, n_clusters=n_clusters, method=optimize_method, **kwargs)
+    model = optimize_kmeans(scaled_data, n_clusters=n_clusters, method=optimize_method, **kwargs)
 
     # Sauvegarde du modèle et du scaler si demandé
     if save:
@@ -265,16 +276,16 @@ def train_kmeans(X, n_clusters=None, optimize=True, save=True, **kwargs):
         'n_clusters': n_clusters,
         'optimize_method': optimize_method,
         'scaler': scaler,
-        'silhouette_score': silhouette_score(X_scaled, model.labels_),
-        'calinski_harabasz_score': calinski_harabasz_score(X_scaled, model.labels_),
-        'davies_bouldin_score': davies_bouldin_score(X_scaled, model.labels_),
+        'silhouette_score': silhouette_score(scaled_data, model.labels_),
+        'calinski_harabasz_score': calinski_harabasz_score(scaled_data, model.labels_),
+        'davies_bouldin_score': davies_bouldin_score(scaled_data, model.labels_),
         'inertia': model.inertia_
     }
 
     return model, info
 
 
-def predict_clusters(model, X, scaler=None):
+def predict_clusters(model, data, scaler=None):
     """
     Prédit les clusters pour de nouvelles données.
     
@@ -282,7 +293,7 @@ def predict_clusters(model, X, scaler=None):
     -----------
     model : KMeans
         Le modèle K-means chargé
-    X : array-like
+    data : array-like
         Les données à prédire
     scaler : StandardScaler, optional
         Le scaler utilisé pour l'entraînement. Si None, les données ne seront pas standardisées
@@ -293,11 +304,10 @@ def predict_clusters(model, X, scaler=None):
         Les labels des clusters prédits
     """
     if scaler is not None:
-        X = scaler.transform(X)
-    return model.predict(X)
+        data = scaler.transform(data)
+    return model.predict(data)
 
 
-# 3. Fonctions utilitaires de sauvegarde et chargement
 def save_model(model, path="models/kmeans_model.pkl"):
     """
     Sauvegarde le modèle K-means entraîné.
@@ -321,7 +331,7 @@ def load_kmeans(model_path, scaler_path=None):
     model_path : str
         Chemin vers le fichier du modèle K-means sauvegardé
     scaler_path : str, optional
-        Chemin vers le fichier du scaler sauvegardé. Si None, cherchera dans le même dossier que le modèle
+        Chemin vers le fichier du scaler sauvegardé. Si None, cherchera dans le même dossier
     
     Retourne:
     --------
