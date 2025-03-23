@@ -22,7 +22,7 @@ def parse_arguments():
         Arguments parsés
     """
     parser = argparse.ArgumentParser(description='Traitement automatique des données OpenFoodFacts')
-    
+
     parser.add_argument(
         '--input', type=str,
         default="https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz",
