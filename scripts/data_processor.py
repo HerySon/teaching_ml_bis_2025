@@ -91,6 +91,43 @@ class DataFrameProcessor:
                 'environmental_score_grade': {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5}
             }
 
+        def add_column(self, col_type: str, column: str) -> None:
+            """
+            Ajoute une colonne à un type spécifique.
+            
+            Args:
+                col_type: Type de la colonne
+                column: Nom de la colonne
+            """
+            if col_type in self.types:
+                self.types[col_type].append(column)
+
+        def get_columns_by_type(self, col_type: str) -> List[str]:
+            """
+            Récupère toutes les colonnes d'un type spécifique.
+            
+            Args:
+                col_type: Type de colonnes à récupérer
+                
+            Returns:
+                Liste des colonnes du type spécifié
+            """
+            return self.types.get(col_type, [])
+
+        def clear(self) -> None:
+            """Réinitialise tous les types de colonnes."""
+            for key in self.types:
+                self.types[key] = []
+
+        def update_ordinal_mapping(self, new_mapping: Dict[str, Dict]) -> None:
+            """
+            Met à jour le mapping des colonnes ordinales.
+            
+            Args:
+                new_mapping: Nouveau mapping à ajouter
+            """
+            self.ordinal_mapping.update(new_mapping)
+
     def __init__(self, df: pd.DataFrame):
         """
         Initialise le processeur avec un DataFrame pandas.
@@ -160,15 +197,14 @@ class DataFrameProcessor:
 
         # Utiliser le mapping fourni ou celui par défaut
         if config.ordinal_columns:
-            self.column_types.ordinal_mapping.update(config.ordinal_columns)
+            self.column_types.update_ordinal_mapping(config.ordinal_columns)
 
         # Réinitialisation des catégories
-        for key in self.column_types.types:
-            self.column_types.types[key] = []
+        self.column_types.clear()
 
         for col in self.df.columns:
             if self.df[col].isna().all():
-                self.column_types.types['other'].append(col)
+                self.column_types.add_column('other', col)
                 continue
 
             dtype = self.df[col].dtype
@@ -177,11 +213,11 @@ class DataFrameProcessor:
             if np.issubdtype(dtype, np.number):
                 self._handle_numeric_column(col)
             elif self._is_datetime_column(col, dtype):
-                self.column_types.types['datetime'].append(col)
+                self.column_types.add_column('datetime', col)
             elif self._is_categorical_column(col, dtype, unique_count):
                 self._handle_categorical_column(col)
             else:
-                self.column_types.types['other'].append(col)
+                self.column_types.add_column('other', col)
 
         for col_type, cols in self.column_types.types.items():
             logger.info("%s: %d colonnes", col_type, len(cols))
@@ -196,13 +232,13 @@ class DataFrameProcessor:
             col: Nom de la colonne
         """
         if col in self.column_types.ordinal_mapping:
-            self.column_types.types['categorical_ordinal'].append(col)
+            self.column_types.add_column('categorical_ordinal', col)
         else:
             unique_count = self.df[col].nunique()
             if unique_count < 20 and unique_count / len(self.df) < 0.01:
-                self.column_types.types['categorical_nominal'].append(col)
+                self.column_types.add_column('categorical_nominal', col)
             else:
-                self.column_types.types['numeric'].append(col)
+                self.column_types.add_column('numeric', col)
 
     def _handle_categorical_column(self, col: str) -> None:
         """
@@ -212,13 +248,13 @@ class DataFrameProcessor:
             col: Nom de la colonne
         """
         if col in self.column_types.ordinal_mapping:
-            self.column_types.types['categorical_ordinal'].append(col)
+            self.column_types.add_column('categorical_ordinal', col)
         else:
             unique_count = self.df[col].nunique()
             if unique_count > self.column_type_config.text_max_categories:
-                self.column_types.types['text'].append(col)
+                self.column_types.add_column('text', col)
             else:
-                self.column_types.types['categorical_nominal'].append(col)
+                self.column_types.add_column('categorical_nominal', col)
 
     def optimize_memory(self, config: MemoryConfig = MemoryConfig()) -> pd.DataFrame:
         """
