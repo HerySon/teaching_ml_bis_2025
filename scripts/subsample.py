@@ -22,7 +22,7 @@ except ImportError as e:
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ def load_dataset(filepath: str | Path) -> pd.DataFrame:
 def analyze_categorical_columns(
     df: pd.DataFrame,
     max_categories: int = 30,
-    figsize: tuple[int, int] = (15, 10)
+    figsize: tuple[int, int] = (15, 10),
 ) -> dict[str, int]:
     """
     Analyze categorical columns in the dataset and visualize their distributions.
@@ -79,8 +79,10 @@ def analyze_categorical_columns(
     sorted_cardinality = dict(sorted(cardinality.items(), key=lambda x: x[1]))
 
     # Filter columns with reasonable cardinality for stratification
-    stratification_candidates = {k: v for k, v in sorted_cardinality.items()
-                               if v >= 2 and v <= max_categories}
+    stratification_candidates = {
+        k: v for k, v in sorted_cardinality.items()
+        if 2 <= v <= max_categories
+    }
 
     # Visualize cardinality
     plt.figure(figsize=figsize)
@@ -100,14 +102,18 @@ def analyze_categorical_columns(
         # Add count labels on top of bars
         for plot_bar in bars:
             height = plot_bar.get_height()
-            plt.text(plot_bar.get_x() + plot_bar.get_width()/2., height + 0.1,
-                    f'{int(height)}', ha='center', va='bottom')
+            plt.text(
+                plot_bar.get_x() + plot_bar.get_width() / 2., height + 0.1,
+                f'{int(height)}', ha='center', va='bottom',
+            )
 
         plt.savefig('results/categorical_columns_analysis.png')
         plt.close()
 
-    logger.info("Found %s categorical columns suitable for stratification",
-               len(stratification_candidates))
+    logger.info(
+        "Found %s categorical columns suitable for stratification",
+        len(stratification_candidates),
+    )
 
     return stratification_candidates
 
@@ -116,7 +122,7 @@ def visualize_categorical_distribution(
     df: pd.DataFrame,
     column: str,
     top_n: int = 10,
-    figsize: tuple[int, int] = (12, 8)
+    figsize: tuple[int, int] = (12, 8),
 ) -> None:
     """
     Visualize the distribution of a categorical column.
@@ -152,9 +158,11 @@ def visualize_categorical_distribution(
     # Add count labels
     for i, (_, val) in enumerate(plot_data.items()):
         percentage = 100 * val / value_counts.sum()
-        ax.annotate(f"{val:,}\n({percentage:.1f}%)",
-                   (i, val),
-                   ha='center', va='bottom')
+        ax.annotate(
+            f"{val:,}\n({percentage:.1f}%)",
+            (i, val),
+            ha='center', va='bottom',
+        )
 
     plt.savefig(f'results/{column}_distribution.png')
     plt.close()
@@ -165,7 +173,7 @@ def subsample_dataset(
     stratify_by: str,
     sample_size: int | None = None,
     sample_fraction: float = 0.1,
-    random_state: int = 42
+    random_state: int = 42,
 ) -> pd.DataFrame:
     """
     Create a stratified subsample of the dataset to maintain the distribution of a key variable.
@@ -189,7 +197,7 @@ def subsample_dataset(
     if missing_count > 0:
         logger.warning(
             "Found %s missing values in '%s'. Filling with 'Unknown'",
-            missing_count, stratify_by
+            missing_count, stratify_by,
         )
         df[stratify_by] = df[stratify_by].fillna('Unknown')
 
@@ -198,12 +206,12 @@ def subsample_dataset(
         sample_size = int(len(df) * sample_fraction)
         logger.info(
             "Using sample_fraction: %s to get sample_size: %s",
-            sample_fraction, sample_size
+            sample_fraction, sample_size,
         )
 
     logger.info(
         "Creating stratified subsample of size %s stratified by '%s'",
-        sample_size, stratify_by
+        sample_size, stratify_by,
     )
 
     # Check if we have very rare categories
@@ -213,7 +221,7 @@ def subsample_dataset(
     if rare_categories:
         logger.warning(
             "Found %s categories with fewer than 5 samples. These will be grouped as 'Other'",
-            len(rare_categories)
+            len(rare_categories),
         )
         # Create a temporary stratification column
         strat_col = df[stratify_by].copy()
@@ -225,8 +233,8 @@ def subsample_dataset(
     subsample = df.groupby(strat_col, group_keys=False).apply(
         lambda x: x.sample(
             n=max(1, int(sample_size * len(x) / len(df))),
-            random_state=random_state
-        )
+            random_state=random_state,
+        ),
     )
 
     # If we got more samples than requested (due to rounding), trim randomly
@@ -242,7 +250,7 @@ def balanced_subsample_multiple_columns(
     columns: list[str],
     sample_size: int | None = None,
     sample_fraction: float = 0.1,
-    random_state: int = 42
+    random_state: int = 42,
 ) -> pd.DataFrame:
     """
     Create a balanced subsample considering multiple columns using StratifiedKFold.
@@ -269,7 +277,7 @@ def balanced_subsample_multiple_columns(
         if missing_count > 0:
             logger.warning(
                 "Filling %s missing values in '%s' with 'Unknown'",
-                missing_count, col
+                missing_count, col,
             )
             df[col] = df[col].fillna('Unknown')
 
@@ -282,14 +290,14 @@ def balanced_subsample_multiple_columns(
 
     logger.info(
         "Creating balanced subsample of size %s considering columns: %s",
-        sample_size, ', '.join(columns)
+        sample_size, ', '.join(columns),
     )
 
     # Use StratifiedKFold for balanced sampling
     skf = StratifiedKFold(
-        n_splits=int(1/sample_fraction),
+        n_splits=int(1 / sample_fraction),
         random_state=random_state,
-        shuffle=True
+        shuffle=True,
     )
 
     # Get indices of the first fold
@@ -305,7 +313,7 @@ def balanced_subsample_multiple_columns(
         logger.warning(
             "Requested sample_size %s is larger than what StratifiedKFold provided (%s). "
             "Using all available samples.",
-            sample_size, len(subsample)
+            sample_size, len(subsample),
         )
 
     # Remove temporary stratification key
@@ -319,7 +327,7 @@ def evaluate_subsample_quality(
     original_df: pd.DataFrame,
     subsample_df: pd.DataFrame,
     columns_to_check: list[str],
-    figsize: tuple[int, int] = (15, 10)
+    figsize: tuple[int, int] = (15, 10),
 ) -> None:
     """
     Evaluate how well the subsample represents the original dataset.
@@ -363,10 +371,12 @@ def evaluate_subsample_quality(
         plt.figure(figsize=figsize)
 
         # Create a DataFrame for plotting
-        plot_df = pd.DataFrame({
-            'Original': orig_counts_top * 100,
-            'Subsample': sub_counts_top * 100
-        })
+        plot_df = pd.DataFrame(
+            {
+                'Original': orig_counts_top * 100,
+                'Subsample': sub_counts_top * 100,
+            },
+        )
 
         # Plot
         plot_df.plot(kind='bar', figsize=figsize)
@@ -381,7 +391,7 @@ def evaluate_subsample_quality(
         jsd = jensen_shannon_distance(orig_counts, sub_counts)
         logger.info(
             "Jensen-Shannon distance for %s: %.4f (lower is better, 0 is identical)",
-            col, jsd
+            col, jsd,
         )
 
 
