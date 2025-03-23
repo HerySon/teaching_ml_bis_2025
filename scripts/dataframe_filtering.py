@@ -1,3 +1,10 @@
+"""
+DataFrame filtering utilities for the OpenFoodFacts dataset.
+
+This module provides utilities for filtering and selecting relevant columns from DataFrames,
+particularly optimized for the OpenFoodFacts dataset.
+"""
+
 import pandas as pd
 from typing import Any
 
@@ -205,7 +212,7 @@ def select_relevant_columns(
 
 def filter_dataframe(
 	df: pd.DataFrame,
-	column_types_to_keep: list[str] = ["numeric", "categorical_ordinal", "categorical_non_ordinal"],
+	column_types_to_keep: list[str] | None = None,
 	missing_threshold: float = 0.5,
 	max_categories: int = 50,
 	min_categories: int = 2,
@@ -218,8 +225,8 @@ def filter_dataframe(
 	-----------
 	df : pd.DataFrame
 		Input DataFrame
-	column_types_to_keep : list, default=["numeric", "categorical_ordinal", "categorical_non_ordinal"]
-		List of column types to keep
+	column_types_to_keep : list, default=None
+		List of column types to keep. If None, uses ["numeric", "categorical_ordinal", "categorical_non_ordinal"]
 	missing_threshold : float, default=0.5
 		Maximum percentage of missing values allowed
 	max_categories : int, default=50
@@ -234,6 +241,9 @@ def filter_dataframe(
 	pd.DataFrame
 		Filtered DataFrame
 	"""
+	if column_types_to_keep is None:
+		column_types_to_keep = ["numeric", "categorical_ordinal", "categorical_non_ordinal"]
+	
 	# Select relevant columns
 	column_types = select_relevant_columns(
 		df,
