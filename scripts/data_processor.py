@@ -82,6 +82,14 @@ class DataFrameProcessor:
         """
         self.df = df.copy()
         self.original_memory = self.df.memory_usage(deep=True).sum()
+        
+        # Configuration par défaut
+        self.column_type_config = ColumnTypeConfig()
+        self.memory_config = MemoryConfig()
+        self.categorical_config = CategoricalConfig()
+        self.column_selection_config = ColumnSelectionConfig()
+        
+        # Types de colonnes et mapping
         self.column_types = {
             'numeric': [],
             'categorical_ordinal': [],
@@ -124,10 +132,14 @@ class DataFrameProcessor:
             True si la colonne est catégorielle
         """
         return (dtype == 'object' or pd.api.types.is_categorical_dtype(dtype)) and (
-                col in self.ordinal_columns_mapping or unique_count <= self.column_type_config.text_max_categories
+                col in self.ordinal_columns_mapping or \
+                unique_count <= self.column_type_config.text_max_categories
         )
 
-    def detect_column_types(self, config: ColumnTypeConfig = ColumnTypeConfig()) -> Dict[str, List[str]]:
+    def detect_column_types(
+            self,
+            config: ColumnTypeConfig = ColumnTypeConfig()
+    ) -> Dict[str, List[str]]:
         """
         Détecte automatiquement les types de colonnes dans le DataFrame.
         
@@ -344,10 +356,12 @@ class DataFrameProcessor:
         """
         missing_pct = self.df[col].isna().mean()
         unique_count = self.df[col].dropna().nunique()
+        max_missing = self.categorical_config.max_missing_pct
+        min_categories = self.categorical_config.min_categories
+        max_categories = self.categorical_config.max_categories
 
-        return (missing_pct <= self.categorical_config.max_missing_pct and
-                unique_count >= self.categorical_config.min_categories and
-                unique_count <= self.categorical_config.max_categories)
+        return (missing_pct <= max_missing and
+                min_categories <= unique_count <= max_categories)
 
     def _get_rejection_reason(self, col: str) -> Tuple[str, str]:
         """
@@ -372,7 +386,11 @@ class DataFrameProcessor:
 
         return col, ", ".join(reasons)
 
-    def _log_categorical_filtering(self, retained: List[str], rejected: List[Tuple[str, str]]) -> None:
+    def _log_categorical_filtering(
+            self,
+            retained: List[str],
+            rejected: List[Tuple[str, str]]
+    ) -> None:
         """
         Journalise les résultats du filtrage des colonnes catégorielles.
         
@@ -386,7 +404,10 @@ class DataFrameProcessor:
         for col, reason in rejected[:10]:
             logger.debug("Rejeté: %s - %s", col, reason)
 
-    def select_relevant_columns(self, config: ColumnSelectionConfig = ColumnSelectionConfig()) -> pd.DataFrame:
+    def select_relevant_columns(
+            self,
+            config: ColumnSelectionConfig = ColumnSelectionConfig()
+    ) -> pd.DataFrame:
         """
         Sélectionne les colonnes pertinentes selon les critères spécifiés.
         
@@ -417,10 +438,11 @@ class DataFrameProcessor:
             Liste des colonnes à inclure
         """
         columns_to_include = []
+        max_missing = self.column_selection_config.max_missing_pct
 
         # Colonnes numériques
         numeric_cols = [col for col in self.column_types['numeric']
-                        if self.df[col].isna().mean() <= self.column_selection_config.max_missing_pct]
+                       if self.df[col].isna().mean() <= max_missing]
         columns_to_include.extend(numeric_cols)
 
         # Colonnes catégorielles
@@ -428,7 +450,7 @@ class DataFrameProcessor:
             CategoricalConfig(
                 min_categories=self.column_selection_config.min_categorical_categories,
                 max_categories=self.column_selection_config.max_categorical_categories,
-                max_missing_pct=self.column_selection_config.max_missing_pct
+                max_missing_pct=max_missing
             )
         )
         columns_to_include.extend(categorical_cols)
@@ -436,13 +458,13 @@ class DataFrameProcessor:
         # Colonnes de date si nécessaire
         if self.column_selection_config.include_datetime:
             datetime_cols = [col for col in self.column_types['datetime']
-                             if self.df[col].isna().mean() <= self.column_selection_config.max_missing_pct]
+                           if self.df[col].isna().mean() <= max_missing]
             columns_to_include.extend(datetime_cols)
 
         # Colonnes textuelles si nécessaire
         if self.column_selection_config.include_text:
             text_cols = [col for col in self.column_types['text']
-                         if self.df[col].isna().mean() <= self.column_selection_config.max_missing_pct]
+                        if self.df[col].isna().mean() <= max_missing]
             columns_to_include.extend(text_cols)
 
         # Filtrer les colonnes URL si nécessaire
@@ -560,7 +582,9 @@ class DataFrameProcessor:
         return results
 
     def _prepare_results(self, df_optimized: pd.DataFrame, df_relevant: pd.DataFrame,
-                         column_types: Dict[str, List[str]], stats_df: Optional[pd.DataFrame]) -> Dict[
+                         column_types: Dict[str, List[str]],
+                         stats_df: Optional[pd.DataFrame]
+                         ) -> Dict[
         str, pd.DataFrame]:
         """
         Prépare les résultats du processus.
@@ -585,7 +609,11 @@ class DataFrameProcessor:
 
         return results
 
-    def _log_process_summary(self, df_relevant: pd.DataFrame, column_types: Dict[str, List[str]]) -> None:
+    def _log_process_summary(
+            self,
+            df_relevant: pd.DataFrame,
+            column_types: Dict[str, List[str]]
+    ) -> None:
         """
         Journalise un résumé du processus.
         
