@@ -530,8 +530,9 @@ class DataFrameProcessor:
         logger.info(
             "Numériques: %d, Catégorielles: %d, URL filtrées: %d, Datetime: %d, Texte: %d",
             len([col for col in non_url_cols if col in self.column_types.types['numeric']]),
-            len([col for col in non_url_cols if col in self.column_types.types['categorical_nominal'] +
-                 self.column_types.types['categorical_ordinal']]),
+            len([col for col in non_url_cols
+                 if col in (self.column_types.types['categorical_nominal'] +
+                            self.column_types.types['categorical_ordinal'])]),
             len(url_cols),
             len([col for col in columns_to_include if col in self.column_types.types['datetime']]),
             len([col for col in columns_to_include if col in self.column_types.types['text']])
@@ -549,7 +550,13 @@ class DataFrameProcessor:
 
         stats = []
         for col in self.df.columns:
-            col_type = next((t for t, cols in self.column_types.types.items() if col in cols), "unknown")
+            # Trouve le type de la colonne
+            col_types = self.column_types.types
+            col_type = "unknown"
+            for t, cols in col_types.items():
+                if col in cols:
+                    col_type = t
+                    break
             stats.append(self._get_column_statistics(col, col_type))
 
         stats_df = pd.DataFrame(stats)
