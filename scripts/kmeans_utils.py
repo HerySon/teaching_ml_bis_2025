@@ -2,20 +2,22 @@
 Module d'utilitaires pour l'analyse et l'optimisation de K-means.
 Fournit des fonctions pour l'entraînement, l'optimisation et la prédiction avec K-means.
 """
+try:
+    import os
 
-import os
-
-import matplotlib.pyplot as plt
-import numpy as np
-from sklearn.cluster import KMeans
-from sklearn.metrics import (
-    calinski_harabasz_score,
-    davies_bouldin_score,
-    silhouette_score,
-)
-from sklearn.model_selection import GridSearchCV
-from sklearn.preprocessing import StandardScaler
-import joblib
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from sklearn.cluster import KMeans
+    from sklearn.metrics import (
+        calinski_harabasz_score,
+        davies_bouldin_score,
+        silhouette_score,
+    )
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.preprocessing import StandardScaler
+    import joblib
+except ImportError as e:
+    print(f"Erreur lors de l'importation des modules : {e}")
 
 
 def find_optimal_clusters(data, k_max=10, k_min=2, method='silhouette'):
