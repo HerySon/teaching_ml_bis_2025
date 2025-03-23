@@ -15,14 +15,6 @@ try:
     import pandas as pd
     from typing import Union, Dict, Tuple
     from scipy import stats
-
-    # Imports sklearn regroupés
-    from sklearn import (
-        impute,
-        covariance,
-        ensemble,
-        neighbors
-    )
     from sklearn.impute import SimpleImputer
     from sklearn.covariance import EllipticEnvelope
     from sklearn.ensemble import IsolationForest
