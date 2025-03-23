@@ -184,7 +184,7 @@ def smart_sample(
     # Création de la colonne de stratification combinée
     df = df.copy()
     
-    # Si aucune colonne n'est disponible pour la stratification, utiliser un échantillonnage aléatoire
+    # Si aucune colonne n'est disponible, utiliser un échantillonnage aléatoire
     if not stratify_cols and not numeric_cols:
         sample = df.sample(n=target_size, random_state=random_state)
         metrics = {'sampling_method': 'random', 'reduction_ratio': len(sample) / len(df)}
@@ -203,18 +203,43 @@ def smart_sample(
             duplicates='drop'
         )
     
-    # Initialisation de StratifiedKFold
-    n_splits = max(2, len(df) // target_size)
+    # Calcul du nombre de splits optimal
+    min_class_size = df['combined_strata'].value_counts().min()
+    n_splits = min(
+        max(2, len(df) // target_size),
+        min_class_size
+    )
+    
+    # Initialisation de StratifiedKFold avec le nombre optimal de splits
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
     
     # Sélection d'un fold
     X = df.drop('combined_strata', axis=1)
     y = df['combined_strata']
     
+    # Sélection du meilleur fold pour atteindre la taille cible
+    best_sample = None
+    best_diff = float('inf')
+    
     for train_idx, test_idx in skf.split(X, y):
-        sample = df.iloc[test_idx]
-        if len(sample) >= target_size:
-            break
+        fold_sample = df.iloc[test_idx]
+        size_diff = abs(len(fold_sample) - target_size)
+        
+        if size_diff < best_diff:
+            best_diff = size_diff
+            best_sample = fold_sample
+    
+    # Si aucun fold n'est assez grand, combiner plusieurs folds
+    if best_sample is None or len(best_sample) < target_size * 0.9:
+        # Échantillonnage aléatoire stratifié comme fallback
+        sample = df.groupby('combined_strata', group_keys=False).apply(
+            lambda x: x.sample(
+                n=max(1, int(len(x) * target_size / len(df))),
+                random_state=random_state
+            )
+        )
+    else:
+        sample = best_sample
     
     # Nettoyage
     sample = sample.drop('combined_strata', axis=1)
