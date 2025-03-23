@@ -10,14 +10,18 @@ import argparse
 import logging
 from pathlib import Path
 
-from scripts.subsample import (
-    analyze_categorical_columns,
-    balanced_subsample_multiple_columns,
-    evaluate_subsample_quality,
-    load_dataset,
-    subsample_dataset,
-    visualize_categorical_distribution
-)
+try:
+    from scripts.subsample import (
+        analyze_categorical_columns,
+        balanced_subsample_multiple_columns,
+        evaluate_subsample_quality,
+        load_dataset,
+        subsample_dataset,
+        visualize_categorical_distribution
+    )
+except ImportError as e:
+    logging.error("Required module not found: %s", e)
+    raise
 
 # Configure logging
 logging.basicConfig(
@@ -27,6 +31,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# pylint: disable=too-many-arguments,too-many-locals
 def create_subsample(
     input_file: str,
     output_file: str,
@@ -55,7 +60,7 @@ def create_subsample(
 
     # Load dataset
     df = load_dataset(input_file)
-    logger.info(f"Original dataset has {len(df)} rows and {len(df.columns)} columns")
+    logger.info("Original dataset has %s rows and %s columns", len(df), len(df.columns))
 
     # Analyze categorical columns to identify good candidates for stratification
     strat_candidates = analyze_categorical_columns(df)
@@ -63,19 +68,24 @@ def create_subsample(
     # If stratification column(s) not provided, suggest based on analysis
     if method == "single" and stratify_column is None:
         # Find columns with moderate cardinality (not too many or too few categories)
-        moderate_candidates = {k: v for k, v in strat_candidates.items() if 5 <= v <= 20}
+        moderate_candidates = {k: v for k, v in strat_candidates.items()
+                              if 5 <= v <= 20}
         if moderate_candidates:
             stratify_column = list(moderate_candidates.keys())[0]
-            logger.info(f"No stratification column specified. Using '{stratify_column}' based on analysis.")
+            logger.info("No stratification column specified. Using '%s' based on analysis.",
+                       stratify_column)
         else:
             # If no suitable column found, use the one with most reasonable number of categories
             stratify_column = list(strat_candidates.keys())[0]
-            logger.info(f"No stratification column specified. Using '{stratify_column}' as fallback.")
+            logger.info("No stratification column specified. Using '%s' as fallback.",
+                       stratify_column)
 
     elif method == "multiple" and stratify_columns is None:
         # Select top 2-3 columns with reasonable cardinality
-        stratify_columns = list(strat_candidates.keys())[:min(3, len(strat_candidates))]
-        logger.info(f"No stratification columns specified. Using {stratify_columns} based on analysis.")
+        col_keys = list(strat_candidates.keys())
+        stratify_columns = col_keys[:min(3, len(strat_candidates))]
+        logger.info("No stratification columns specified. Using %s based on analysis.",
+                   stratify_columns)
 
     # Visualize distribution of stratification column(s)
     if method == "single" and stratify_column is not None:
@@ -85,8 +95,8 @@ def create_subsample(
             visualize_categorical_distribution(df, col)
 
     # Create subsample based on chosen method
-    if method == "single":
-        logger.info(f"Creating stratified subsample using column: {stratify_column}")
+    if method == "single" and stratify_column is not None:
+        logger.info("Creating stratified subsample using column: %s", stratify_column)
         subsample = subsample_dataset(
             df=df,
             stratify_by=stratify_column,
@@ -94,8 +104,8 @@ def create_subsample(
             sample_fraction=sample_fraction,
             random_state=random_state
         )
-    else:
-        logger.info(f"Creating stratified subsample using columns: {stratify_columns}")
+    elif stratify_columns is not None:
+        logger.info("Creating stratified subsample using columns: %s", stratify_columns)
         subsample = balanced_subsample_multiple_columns(
             df=df,
             columns=stratify_columns,
@@ -103,19 +113,27 @@ def create_subsample(
             sample_fraction=sample_fraction,
             random_state=random_state
         )
+    else:
+        # This should not happen with the checks above, but just in case
+        raise ValueError("No valid stratification columns available")
 
     # Save subsample
     subsample.to_csv(output_file, index=False)
-    logger.info(f"Saved subsample with {len(subsample)} rows to {output_file}")
+    logger.info("Saved subsample with %s rows to %s", len(subsample), output_file)
 
     # Evaluate subsample quality
-    columns_to_check = stratify_columns if method == "multiple" else [stratify_column]
+    columns_to_check = []
+    if method == "multiple" and stratify_columns is not None:
+        columns_to_check = stratify_columns
+    elif stratify_column is not None:
+        columns_to_check = [stratify_column]
 
     # Add a few more columns to check for representativeness
     numerical_cols = df.select_dtypes(include=['int64', 'float64']).columns[:3].tolist()
     categorical_cols = list(strat_candidates.keys())
 
     # Ensure we're not checking too many columns
+    # Use a limited number of categorical columns to keep plot sizes manageable
     all_check_cols = list(set(columns_to_check + categorical_cols[:5] + numerical_cols))
 
     evaluate_subsample_quality(df, subsample, all_check_cols)
@@ -125,7 +143,9 @@ def create_subsample(
 
 def main():
     """Main entry point for the script."""
-    parser = argparse.ArgumentParser(description="Create a representative subsample of the Open Food Facts dataset")
+    parser = argparse.ArgumentParser(
+        description="Create a representative subsample of the Open Food Facts dataset"
+    )
 
     parser.add_argument("--input", "-i", required=True,
                        help="Path to the input CSV file containing the Open Food Facts dataset")
@@ -153,16 +173,13 @@ def main():
 
     args = parser.parse_args()
 
-    # Convert stratify-columns from list of strings to actual list if provided
-    stratify_cols = args.stratify_columns
-
     # Create subsample
     create_subsample(
         input_file=args.input,
         output_file=args.output,
         method=args.method,
         stratify_column=args.stratify_column,
-        stratify_columns=stratify_cols,
+        stratify_columns=args.stratify_columns,
         sample_size=args.sample_size,
         sample_fraction=args.sample_fraction,
         random_state=args.random_state

@@ -8,13 +8,16 @@ to create a representative subset while maintaining the distribution of key vari
 
 import logging
 from pathlib import Path
-from typing import Union
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import seaborn as sns
-from sklearn.model_selection import StratifiedKFold
+try:
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+    import seaborn as sns
+    from sklearn.model_selection import StratifiedKFold
+except ImportError as e:
+    logging.error("Required dependency not found: %s", e)
+    raise
 
 # Configure logging
 logging.basicConfig(
@@ -24,7 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def load_dataset(filepath: Union[str, Path]) -> pd.DataFrame:
+def load_dataset(filepath: str | Path) -> pd.DataFrame:
     """
     Load the Open Food Facts dataset from a file.
 
@@ -34,20 +37,22 @@ def load_dataset(filepath: Union[str, Path]) -> pd.DataFrame:
     Returns:
         DataFrame containing the dataset
     """
-    logger.info(f"Loading dataset from {filepath}")
+    logger.info("Loading dataset from %s", filepath)
 
     try:
         df = pd.read_csv(filepath)
-        logger.info(f"Dataset loaded successfully. Shape: {df.shape}")
+        logger.info("Dataset loaded successfully. Shape: %s", df.shape)
         return df
     except Exception as e:
-        logger.error(f"Error loading dataset: {e}")
+        logger.error("Error loading dataset: %s", e)
         raise
 
 
-def analyze_categorical_columns(df: pd.DataFrame,
-                               max_categories: int = 30,
-                               figsize: tuple = (15, 10)) -> dict:
+def analyze_categorical_columns(
+    df: pd.DataFrame,
+    max_categories: int = 30,
+    figsize: tuple[int, int] = (15, 10)
+) -> dict[str, int]:
     """
     Analyze categorical columns in the dataset and visualize their distributions.
 
@@ -93,23 +98,26 @@ def analyze_categorical_columns(df: pd.DataFrame,
         plt.tight_layout()
 
         # Add count labels on top of bars
-        for bar in bars:
-            height = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width()/2., height + 0.1,
+        for plot_bar in bars:
+            height = plot_bar.get_height()
+            plt.text(plot_bar.get_x() + plot_bar.get_width()/2., height + 0.1,
                     f'{int(height)}', ha='center', va='bottom')
 
         plt.savefig('results/categorical_columns_analysis.png')
         plt.close()
 
-    logger.info(f"Found {len(stratification_candidates)} categorical columns suitable for stratification")
+    logger.info("Found %s categorical columns suitable for stratification",
+               len(stratification_candidates))
 
     return stratification_candidates
 
 
-def visualize_categorical_distribution(df: pd.DataFrame,
-                                      column: str,
-                                      top_n: int = 10,
-                                      figsize: tuple = (12, 8)) -> None:
+def visualize_categorical_distribution(
+    df: pd.DataFrame,
+    column: str,
+    top_n: int = 10,
+    figsize: tuple[int, int] = (12, 8)
+) -> None:
     """
     Visualize the distribution of a categorical column.
 
@@ -120,7 +128,7 @@ def visualize_categorical_distribution(df: pd.DataFrame,
         figsize: Size of the figure
     """
     if column not in df.columns:
-        logger.warning(f"Column {column} not found in dataframe")
+        logger.warning("Column %s not found in dataframe", column)
         return
 
     value_counts = df[column].value_counts()
@@ -142,7 +150,7 @@ def visualize_categorical_distribution(df: pd.DataFrame,
     plt.tight_layout()
 
     # Add count labels
-    for i, (idx, val) in enumerate(plot_data.items()):
+    for i, (_, val) in enumerate(plot_data.items()):
         percentage = 100 * val / value_counts.sum()
         ax.annotate(f"{val:,}\n({percentage:.1f}%)",
                    (i, val),
@@ -152,11 +160,13 @@ def visualize_categorical_distribution(df: pd.DataFrame,
     plt.close()
 
 
-def subsample_dataset(df: pd.DataFrame,
-                     stratify_by: str,
-                     sample_size: int | None = None,
-                     sample_fraction: float = 0.1,
-                     random_state: int = 42) -> pd.DataFrame:
+def subsample_dataset(
+    df: pd.DataFrame,
+    stratify_by: str,
+    sample_size: int | None = None,
+    sample_fraction: float = 0.1,
+    random_state: int = 42
+) -> pd.DataFrame:
     """
     Create a stratified subsample of the dataset to maintain the distribution of a key variable.
 
@@ -171,29 +181,40 @@ def subsample_dataset(df: pd.DataFrame,
         Subsampled dataframe
     """
     if stratify_by not in df.columns:
-        logger.error(f"Stratification column '{stratify_by}' not found in dataset")
+        logger.error("Stratification column '%s' not found in dataset", stratify_by)
         raise ValueError(f"Column '{stratify_by}' not found in dataset")
 
     # Handle missing values in stratification column
-    if df[stratify_by].isna().any():
-        logger.warning(f"Found {df[stratify_by].isna().sum()} missing values in '{stratify_by}'. "
-                      f"Filling with 'Unknown'")
+    missing_count = df[stratify_by].isna().sum()
+    if missing_count > 0:
+        logger.warning(
+            "Found %s missing values in '%s'. Filling with 'Unknown'",
+            missing_count, stratify_by
+        )
         df[stratify_by] = df[stratify_by].fillna('Unknown')
 
     # Determine sample size
     if sample_size is None:
         sample_size = int(len(df) * sample_fraction)
-        logger.info(f"Using sample_fraction: {sample_fraction} to get sample_size: {sample_size}")
+        logger.info(
+            "Using sample_fraction: %s to get sample_size: %s",
+            sample_fraction, sample_size
+        )
 
-    logger.info(f"Creating stratified subsample of size {sample_size} stratified by '{stratify_by}'")
+    logger.info(
+        "Creating stratified subsample of size %s stratified by '%s'",
+        sample_size, stratify_by
+    )
 
     # Check if we have very rare categories
     value_counts = df[stratify_by].value_counts()
     rare_categories = value_counts[value_counts < 5].index.tolist()
 
     if rare_categories:
-        logger.warning(f"Found {len(rare_categories)} categories with fewer than 5 samples. "
-                      f"These will be grouped as 'Other'")
+        logger.warning(
+            "Found %s categories with fewer than 5 samples. These will be grouped as 'Other'",
+            len(rare_categories)
+        )
         # Create a temporary stratification column
         strat_col = df[stratify_by].copy()
         strat_col = strat_col.apply(lambda x: 'Other' if x in rare_categories else x)
@@ -212,15 +233,17 @@ def subsample_dataset(df: pd.DataFrame,
     if len(subsample) > sample_size:
         subsample = subsample.sample(sample_size, random_state=random_state)
 
-    logger.info(f"Created subsample with {len(subsample)} rows")
+    logger.info("Created subsample with %s rows", len(subsample))
     return subsample
 
 
-def balanced_subsample_multiple_columns(df: pd.DataFrame,
-                                       columns: list,
-                                       sample_size: int | None = None,
-                                       sample_fraction: float = 0.1,
-                                       random_state: int = 42) -> pd.DataFrame:
+def balanced_subsample_multiple_columns(
+    df: pd.DataFrame,
+    columns: list[str],
+    sample_size: int | None = None,
+    sample_fraction: float = 0.1,
+    random_state: int = 42
+) -> pd.DataFrame:
     """
     Create a balanced subsample considering multiple columns using StratifiedKFold.
 
@@ -237,13 +260,17 @@ def balanced_subsample_multiple_columns(df: pd.DataFrame,
     # Validate columns
     for col in columns:
         if col not in df.columns:
-            logger.error(f"Column '{col}' not found in dataset")
+            logger.error("Column '%s' not found in dataset", col)
             raise ValueError(f"Column '{col}' not found in dataset")
 
     # Handle missing values in specified columns
     for col in columns:
-        if df[col].isna().any():
-            logger.warning(f"Filling {df[col].isna().sum()} missing values in '{col}' with 'Unknown'")
+        missing_count = df[col].isna().sum()
+        if missing_count > 0:
+            logger.warning(
+                "Filling %s missing values in '%s' with 'Unknown'",
+                missing_count, col
+            )
             df[col] = df[col].fillna('Unknown')
 
     # Create a composite key for stratification
@@ -253,10 +280,17 @@ def balanced_subsample_multiple_columns(df: pd.DataFrame,
     if sample_size is None:
         sample_size = int(len(df) * sample_fraction)
 
-    logger.info(f"Creating balanced subsample of size {sample_size} considering columns: {', '.join(columns)}")
+    logger.info(
+        "Creating balanced subsample of size %s considering columns: %s",
+        sample_size, ', '.join(columns)
+    )
 
     # Use StratifiedKFold for balanced sampling
-    skf = StratifiedKFold(n_splits=int(1/sample_fraction), random_state=random_state, shuffle=True)
+    skf = StratifiedKFold(
+        n_splits=int(1/sample_fraction),
+        random_state=random_state,
+        shuffle=True
+    )
 
     # Get indices of the first fold
     train_idx, _ = next(skf.split(df, df['_strat_key']))
@@ -268,20 +302,25 @@ def balanced_subsample_multiple_columns(df: pd.DataFrame,
     if len(subsample) > sample_size:
         subsample = subsample.sample(sample_size, random_state=random_state)
     elif len(subsample) < sample_size:
-        logger.warning(f"Requested sample_size {sample_size} is larger than what StratifiedKFold "
-                      f"provided ({len(subsample)}). Using all available samples.")
+        logger.warning(
+            "Requested sample_size %s is larger than what StratifiedKFold provided (%s). "
+            "Using all available samples.",
+            sample_size, len(subsample)
+        )
 
     # Remove temporary stratification key
     subsample = subsample.drop('_strat_key', axis=1)
 
-    logger.info(f"Created subsample with {len(subsample)} rows")
+    logger.info("Created subsample with %s rows", len(subsample))
     return subsample
 
 
-def evaluate_subsample_quality(original_df: pd.DataFrame,
-                              subsample_df: pd.DataFrame,
-                              columns_to_check: list,
-                              figsize: tuple = (15, 10)) -> None:
+def evaluate_subsample_quality(
+    original_df: pd.DataFrame,
+    subsample_df: pd.DataFrame,
+    columns_to_check: list[str],
+    figsize: tuple[int, int] = (15, 10)
+) -> None:
     """
     Evaluate how well the subsample represents the original dataset.
 
@@ -298,7 +337,7 @@ def evaluate_subsample_quality(original_df: pd.DataFrame,
 
     for col in columns_to_check:
         if col not in original_df.columns or col not in subsample_df.columns:
-            logger.warning(f"Column {col} not found in one of the dataframes")
+            logger.warning("Column %s not found in one of the dataframes", col)
             continue
 
         # Get value counts and convert to percentages
@@ -340,7 +379,10 @@ def evaluate_subsample_quality(original_df: pd.DataFrame,
 
         # Calculate and log distribution similarity metrics
         jsd = jensen_shannon_distance(orig_counts, sub_counts)
-        logger.info(f"Jensen-Shannon distance for {col}: {jsd:.4f} (lower is better, 0 is identical)")
+        logger.info(
+            "Jensen-Shannon distance for %s: %.4f (lower is better, 0 is identical)",
+            col, jsd
+        )
 
 
 def jensen_shannon_distance(p: pd.Series, q: pd.Series) -> float:
@@ -375,10 +417,3 @@ def jensen_shannon_distance(p: pd.Series, q: pd.Series) -> float:
     js_distance = np.sqrt(js_divergence)
 
     return js_distance
-
-
-if __name__ == "__main__":
-    # Example usage - this would be run from a notebook or script
-    # The module provides the functionality for subsampling
-    print("This module provides functions for subsampling the Open Food Facts dataset.")
-    print("Import and use the functions in your code or notebooks.")
