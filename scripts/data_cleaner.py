@@ -288,12 +288,11 @@ def _select_best_predictors(
     Returns:
         Liste des 10 meilleurs prédicteurs
     """
-    correlations = {}
-
     # Vérifier si la colonne cible a de la variabilité
     if not (df[target_col].notna().any() and df[target_col].std() > 0):
         return potential_predictors[:10]
 
+    correlations = {}
     for pred in potential_predictors:
         try:
             # Calculer corrélation pour lignes avec valeurs non-NA

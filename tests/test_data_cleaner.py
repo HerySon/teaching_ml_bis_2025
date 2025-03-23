@@ -29,8 +29,10 @@ def load_sample_data() -> pd.DataFrame:
     path = "https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz"
     try:
         df_sample = pd.read_csv(path, nrows=500, sep='\t', encoding="utf-8")
-        print(f"Échantillon chargé avec succès : {df_sample.shape[0]} lignes et "
-              f"{df_sample.shape[1]} colonnes")
+        print(
+            f"Échantillon chargé avec succès : {df_sample.shape[0]} lignes et "
+            f"{df_sample.shape[1]} colonnes"
+        )
         return df_sample
     except (pd.errors.EmptyDataError, pd.errors.ParserError) as e:
         print(f"Erreur lors du chargement des données : {e}")
