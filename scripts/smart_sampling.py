@@ -6,8 +6,11 @@ de manière intelligente en utilisant différentes stratégies, notamment le
 sous-échantillonnage stratifié.
 """
 
-import numpy as np
+import os
+import sys
+import pytest  # Packages tiers après les packages standard
 import pandas as pd
+import numpy as np
 from typing import Union, Tuple, Dict, List, Optional
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedKFold
@@ -526,4 +529,77 @@ def _plot_distributions(
     
     except Exception as e:
         print(f"Erreur lors de la création des visualisations: {str(e)}")
-        print("Les visualisations ne sont pas disponibles, mais l'échantillonnage a été effectué.") 
+        print("Les visualisations ne sont pas disponibles, mais l'échantillonnage a été effectué.")
+
+
+def test_column_selection(generic_df):
+    """Teste la sélection automatique des colonnes."""
+    stratify_cols, numeric_cols = _auto_select_columns(generic_df)
+    
+    # Vérification de la présence des colonnes
+    assert len(stratify_cols) > 0, (
+        "Au moins une colonne de stratification doit être sélectionnée"
+    )
+    assert len(numeric_cols) > 0, (
+        "Au moins une colonne numérique doit être sélectionnée"
+    )
+    
+    # Vérification de l'existence des colonnes
+    assert all(col in generic_df.columns for col in stratify_cols)
+    assert all(col in generic_df.columns for col in numeric_cols)
+    
+    # Vérification de l'exclusion des métadonnées
+    metadata_patterns = ['id', 'timestamp', 'url', 'description']
+    assert not any(
+        any(pattern in col for pattern in metadata_patterns)
+        for col in stratify_cols + numeric_cols
+    )
+    
+    # Vérification des colonnes numériques
+    assert all(
+        '_100g' in col for col in numeric_cols
+    ), "Les colonnes numériques doivent contenir '_100g'"
+
+
+def test_sampling_properties(generic_df):
+    """Teste les propriétés de l'échantillonnage."""
+    for ratio in [0.1, 0.25, 0.5]:
+        target_size = int(len(generic_df) * ratio)
+        sample, metrics = smart_sample(
+            generic_df,
+            target_size=target_size,
+            verbose=False
+        )
+        
+        # Vérification de la taille
+        assert len(sample) >= target_size * 0.9, (
+            f"Taille minimale non atteinte pour ratio {ratio}"
+        )
+        assert len(sample) <= target_size * 1.1, (
+            f"Taille maximale dépassée pour ratio {ratio}"
+        )
+        
+        # Vérification des colonnes
+        assert set(sample.columns) == set(generic_df.columns), (
+            "Toutes les colonnes doivent être préservées"
+        )
+        
+        # Vérification des distributions
+        for col in [c for c in sample.columns if '_100g' in c]:
+            _verify_distribution(generic_df, sample, col)
+
+
+def _verify_distribution(original, sample, column):
+    """Vérifie la préservation de la distribution d'une colonne."""
+    orig_stats = original[column].describe()
+    sample_stats = sample[column].describe()
+    
+    for stat in ['mean', 'std']:
+        if (not pd.isna(orig_stats[stat]) and 
+            not pd.isna(sample_stats[stat])):
+            percent_diff = abs(
+                orig_stats[stat] - sample_stats[stat]
+            ) / orig_stats[stat]
+            assert percent_diff < 0.2, (
+                f"Statistique {stat} trop différente pour {column}"
+            ) 
