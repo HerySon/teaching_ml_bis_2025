@@ -8,8 +8,8 @@ import re
 try:
     import numpy as np
     import pandas as pd
-except ImportError:
-    raise ImportError("numpy and pandas are required for this module")
+except ImportError as exc:
+    raise ImportError("numpy and pandas are required for this module") from exc
 
 
 def extract_quantity(text: str) -> float | None:

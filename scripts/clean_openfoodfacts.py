@@ -7,8 +7,8 @@ from pathlib import Path
 
 try:
     import pandas as pd
-except ImportError:
-    raise ImportError("pandas is required for this module")
+except ImportError as exc:
+    raise ImportError('pandas is required for this module') from exc
 
 from .data_cleaning import (
     load_data,
