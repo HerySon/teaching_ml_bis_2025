@@ -51,12 +51,14 @@ class DataFrameProcessor:
     
     def detect_column_types(self, 
                            text_max_categories: int = 1000,
-                           ordinal_columns: Optional[Dict[str, Dict]] = None) -> Dict[str, List[str]]:
+                           ordinal_columns: Optional[Dict[str, Dict]] = None
+                           ) -> Dict[str, List[str]]:
         """
         Détecte automatiquement les types de colonnes dans le DataFrame.
         
         Args:
-            text_max_categories: Nombre maximum de catégories pour considérer une colonne comme textuelle
+            text_max_categories: Nombre maximum de catégories pour considérer une colonne 
+            comme textuelle
             ordinal_columns: Dictionnaire des colonnes ordinales avec leurs mappages
             
         Returns:
@@ -276,7 +278,8 @@ class DataFrameProcessor:
             max_missing_pct: Pourcentage maximum de valeurs manquantes
             include_text: Si True, inclut les colonnes textuelles
             include_datetime: Si True, inclut les colonnes de type datetime (False par défaut)
-            include_url: Si True, inclut les colonnes contenant "url" dans leur nom (False par défaut)
+            include_url: Si True, inclut les colonnes contenant "url" dans 
+            leur nom (False par défaut)
             
         Returns:
             DataFrame avec uniquement les colonnes pertinentes
@@ -403,14 +406,16 @@ class DataFrameProcessor:
         de la mémoire et de sélection des colonnes pertinentes en une seule opération.
         
         Args:
-            text_max_categories: Nombre maximum de catégories pour considérer une colonne comme textuelle
+            text_max_categories: Nombre maximum de catégories pour considérer une colonne 
+            comme textuelle
             ordinal_columns: Dictionnaire des colonnes ordinales avec leurs mappages
             min_categorical_categories: Nombre minimum de catégories pour les colonnes catégorielles
             max_categorical_categories: Nombre maximum de catégories pour les colonnes catégorielles
             max_missing_pct: Pourcentage maximum de valeurs manquantes
             include_text: Si True, inclut les colonnes textuelles (False par défaut)
             include_datetime: Si True, inclut les colonnes de type datetime (False par défaut)
-            include_url: Si True, inclut les colonnes contenant "url" dans leur nom (False par défaut)
+            include_url: Si True, inclut les colonnes contenant "url" 
+            dans leur nom (False par défaut)
             optimize_memory_flag: Si True, applique l'optimisation de mémoire
             return_stats: Si True, inclut les statistiques des colonnes dans le résultat
             
