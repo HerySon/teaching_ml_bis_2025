@@ -1,10 +1,22 @@
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Tuple, Set, Optional
+"""
+Module pour le traitement et l'optimisation des DataFrames pandas.
+
+Ce module fournit une classe DataFrameProcessor qui permet de détecter automatiquement
+les types de colonnes, d'optimiser la mémoire et de sélectionner les colonnes pertinentes
+pour l'analyse de données.
+"""
+
 import logging
+from typing import Dict, List, Tuple, Optional
+
+import numpy as np
+import pandas as pd
 
 # Configuration du logger
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger('DataFrameProcessor')
 
 class DataFrameProcessor:
@@ -108,7 +120,7 @@ class DataFrameProcessor:
                 
         # Afficher un résumé
         for col_type, cols in self.column_types.items():
-            logger.info(f"{col_type}: {len(cols)} colonnes")
+            logger.info("%s: %d colonnes", col_type, len(cols))
             
         return self.column_types
     
@@ -181,9 +193,9 @@ class DataFrameProcessor:
         if verbose:
             new_memory = df_optimized.memory_usage(deep=True).sum()
             memory_reduction = 100 * (1 - new_memory / self.original_memory)
-            logger.info(f"Mémoire initiale: {self.original_memory / 1e6:.2f} MB")
-            logger.info(f"Mémoire optimisée: {new_memory / 1e6:.2f} MB")
-            logger.info(f"Réduction: {memory_reduction:.2f}%")
+            logger.info("Mémoire initiale: %.2f MB", self.original_memory / 1e6)
+            logger.info("Mémoire optimisée: %.2f MB", new_memory / 1e6)
+            logger.info("Réduction: %.2f%%", memory_reduction)
         
         return df_optimized
     
@@ -212,7 +224,8 @@ class DataFrameProcessor:
         rejected_columns = []
         
         # Combiner les colonnes catégorielles ordinales et non-ordinales
-        categorical_columns = self.column_types['categorical_ordinal'] + self.column_types['categorical_nominal']
+        categorical_columns = (self.column_types['categorical_ordinal'] + 
+                               self.column_types['categorical_nominal'])
         
         for col in categorical_columns:
             # Calculer le pourcentage de valeurs manquantes
@@ -238,12 +251,12 @@ class DataFrameProcessor:
                 rejected_columns.append((col, ", ".join(reason)))
         
         # Journaliser les résultats
-        logger.info(f"Colonnes catégorielles retenues: {len(retained_columns)}")
-        logger.info(f"Colonnes catégorielles rejetées: {len(rejected_columns)}")
+        logger.info("Colonnes catégorielles retenues: %d", len(retained_columns))
+        logger.info("Colonnes catégorielles rejetées: %d", len(rejected_columns))
         
         # Afficher les raisons de rejet pour les premières colonnes
         for col, reason in rejected_columns[:10]:
-            logger.debug(f"Rejeté: {col} - {reason}")
+            logger.debug("Rejeté: %s - %s", col, reason)
         
         return retained_columns, [col for col, _ in rejected_columns]
     
@@ -317,11 +330,16 @@ class DataFrameProcessor:
         non_url_numeric_cols = [col for col in numeric_cols if col not in url_cols]
         non_url_categorical_cols = [col for col in categorical_cols if col not in url_cols]
         
-        logger.info(f"Colonnes sélectionnées: {len(columns_to_include)} sur {len(self.df.columns)}")
-        logger.info(f"Numériques: {len(non_url_numeric_cols)}, Catégorielles: {len(non_url_categorical_cols)}, "
-                  f"URL filtrées: {len(url_cols)}, "
-                  f"Datetime: {len(datetime_cols) if include_datetime else 0}, "
-                  f"Texte: {len(text_cols) if include_text else 0}")
+        logger.info("Colonnes sélectionnées: %d sur %d", 
+                    len(columns_to_include), len(self.df.columns))
+        logger.info(
+            "Numériques: %d, Catégorielles: %d, URL filtrées: %d, Datetime: %d, Texte: %d",
+            len(non_url_numeric_cols), 
+            len(non_url_categorical_cols),
+            len(url_cols),
+            len(datetime_cols) if include_datetime else 0,
+            len(text_cols) if include_text else 0
+        )
         
         return df_relevant
 
@@ -449,9 +467,12 @@ class DataFrameProcessor:
             
         # Génération d'un résumé du processus
         logger.info("Processus de traitement terminé avec succès")
-        logger.info(f"Nombre total de colonnes: {len(self.df.columns)}")
-        logger.info(f"Nombre de colonnes pertinentes: {len(df_relevant.columns)}")
-        logger.info(f"Réduction: {100 * (1 - len(df_relevant.columns) / len(self.df.columns)):.2f}%")
+        logger.info("Nombre total de colonnes: %d", len(self.df.columns))
+        logger.info("Nombre de colonnes pertinentes: %d", len(df_relevant.columns))
+        logger.info(
+            "Réduction: %.2f%%", 
+            100 * (1 - len(df_relevant.columns) / len(self.df.columns))
+        )
         
         # Résumer les types de colonnes sélectionnées
         type_counts = {}
@@ -461,6 +482,6 @@ class DataFrameProcessor:
         logger.info("Composition du DataFrame filtré:")
         for col_type, count in type_counts.items():
             if count > 0:
-                logger.info(f" - {col_type}: {count} colonnes")
+                logger.info(" - %s: %d colonnes", col_type, count)
                 
         return results 

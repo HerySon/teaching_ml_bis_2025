@@ -4,10 +4,11 @@ Ce script utilise la classe DataFrameProcessor pour filtrer et sélectionner
 les colonnes pertinentes du dataset OpenFoodFacts.
 """
 
-import pandas as pd
 import argparse
 import logging
 import time
+
+import pandas as pd
 
 # Importer notre classe DataFrameProcessor
 from data_processor import DataFrameProcessor
@@ -21,9 +22,11 @@ def parse_arguments():
     """
     parser = argparse.ArgumentParser(description='Traitement automatique des données OpenFoodFacts')
     
-    parser.add_argument('--input', type=str, 
-                        default="https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz",
-                        help='Chemin ou URL vers le fichier de données (CSV)')
+    parser.add_argument(
+        '--input', type=str, 
+        default="https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz",
+        help='Chemin ou URL vers le fichier de données (CSV)'
+    )
     
     parser.add_argument('--nrows', type=int, default=None,
                         help='Nombre de lignes à charger (None pour toutes)')
@@ -84,15 +87,15 @@ def main():
     start_time = time.time()
     
     logging.info("Démarrage du traitement des données OpenFoodFacts")
-    logging.info(f"Fichier source: {args.input}")
+    logging.info("Fichier source: %s", args.input)
     
     # Charger les données
-    logging.info(f"Chargement des données (nrows={args.nrows if args.nrows else 'toutes'})")
+    logging.info("Chargement des données (nrows=%s)", args.nrows if args.nrows else 'toutes')
     try:
         df = pd.read_csv(args.input, nrows=args.nrows, sep='\t', encoding="utf-8")
-        logging.info(f"Données chargées: {df.shape[0]} lignes x {df.shape[1]} colonnes")
-    except Exception as e:
-        logging.error(f"Erreur lors du chargement des données: {e}")
+        logging.info("Données chargées: %d lignes x %d colonnes", df.shape[0], df.shape[1])
+    except (pd.errors.ParserError, pd.errors.EmptyDataError, IOError) as e:
+        logging.error("Erreur lors du chargement des données: %s", e)
         return
     
     # Initialiser le processeur
@@ -117,10 +120,18 @@ def main():
     
     # Afficher un résumé final
     elapsed_time = time.time() - start_time
-    logging.info(f"Traitement terminé en {elapsed_time:.2f} secondes")
-    logging.info(f"DataFrame original: {df.shape[1]} colonnes")
-    logging.info(f"DataFrame filtré: {df_relevant.shape[1]} colonnes")
-    logging.info(f"Réduction: {100 * (1 - df_relevant.shape[1] / df.shape[1]):.2f}%")
+    logging.info("Traitement terminé en %.2f secondes", elapsed_time)
+    logging.info("DataFrame original: %d colonnes", df.shape[1])
+    logging.info("DataFrame filtré: %d colonnes", df_relevant.shape[1])
+    logging.info(
+        "Réduction: %.2f%%", 
+        100 * (1 - df_relevant.shape[1] / df.shape[1])
+    )
+    
+    # Afficher les statistiques sur les données manquantes (utiliser stats_df)
+    if stats_df is not None:
+        missing_avg = stats_df['missing_pct'].mean()
+        logging.info("Pourcentage moyen de valeurs manquantes: %.2f%%", missing_avg * 100)
     
     # Afficher un résumé des types de colonnes dans le DataFrame filtré
     column_types = results['column_types']
@@ -128,9 +139,9 @@ def main():
     for col_type, cols in column_types.items():
         cols_in_result = [c for c in cols if c in df_relevant.columns]
         if cols_in_result:
-            logging.info(f" - {col_type}: {len(cols_in_result)} colonnes")
+            logging.info(" - %s: %d colonnes", col_type, len(cols_in_result))
             if len(cols_in_result) <= 10:  # Afficher les noms si peu nombreux
-                logging.info(f"   {', '.join(cols_in_result)}")
+                logging.info("   %s", ', '.join(cols_in_result))
 
 if __name__ == "__main__":
     main() 
