@@ -25,13 +25,10 @@ def generic_df():
     
     # Génération de colonnes numériques avec différentes distributions
     numeric_data = {
-        f'num_{i}': distribution(n_samples)
-        for i, distribution in enumerate([
-            lambda n: np.random.normal(100, 20, n),    # Distribution normale
-            lambda n: np.random.exponential(50, n),    # Distribution exponentielle
-            lambda n: np.random.uniform(0, 100, n),    # Distribution uniforme
-            lambda n: np.random.poisson(30, n)         # Distribution de Poisson
-        ])
+        'normal_100g': np.random.normal(100, 20, n_samples),
+        'exp_100g': np.random.exponential(50, n_samples),
+        'uniform_100g': np.random.uniform(0, 100, n_samples),
+        'poisson_100g': np.random.poisson(30, n_samples)
     }
     
     # Ajout de colonnes à exclure typiques
@@ -69,6 +66,9 @@ def test_column_selection(generic_df):
     metadata_patterns = ['id', 'timestamp', 'url', 'description']
     assert not any(any(pattern in col for pattern in metadata_patterns) 
                   for col in stratify_cols + numeric_cols)
+    
+    # Vérifie que les colonnes numériques avec '_100g' sont sélectionnées
+    assert all('_100g' in col for col in numeric_cols), "Les colonnes numériques doivent contenir '_100g'"
 
 def test_sampling_properties(generic_df):
     """Teste les propriétés générales de l'échantillonnage."""
@@ -83,16 +83,15 @@ def test_sampling_properties(generic_df):
         assert set(sample.columns) == set(generic_df.columns), "Toutes les colonnes doivent être préservées"
         
         # Vérifie la préservation des distributions pour toutes les colonnes numériques
-        for col in sample.select_dtypes(include=['int64', 'float64']).columns:
-            if col not in ['id', 'timestamp']:  # Ignore les colonnes de métadonnées
-                orig_stats = generic_df[col].describe()
-                sample_stats = sample[col].describe()
-                
-                # Vérifie que les statistiques principales sont similaires
-                for stat in ['mean', 'std']:
-                    if not pd.isna(orig_stats[stat]) and not pd.isna(sample_stats[stat]):
-                        percent_diff = abs(orig_stats[stat] - sample_stats[stat]) / orig_stats[stat]
-                        assert percent_diff < 0.2, f"Statistique {stat} trop différente pour {col}"
+        for col in [c for c in sample.columns if '_100g' in c]:
+            orig_stats = generic_df[col].describe()
+            sample_stats = sample[col].describe()
+            
+            # Vérifie que les statistiques principales sont similaires
+            for stat in ['mean', 'std']:
+                if not pd.isna(orig_stats[stat]) and not pd.isna(sample_stats[stat]):
+                    percent_diff = abs(orig_stats[stat] - sample_stats[stat]) / orig_stats[stat]
+                    assert percent_diff < 0.2, f"Statistique {stat} trop différente pour {col}"
 
 def test_robustness():
     """Teste la robustesse avec différents types de DataFrames."""
@@ -100,23 +99,23 @@ def test_robustness():
     with pytest.raises(ValueError):
         smart_sample(pd.DataFrame())
     
-    # Test avec une seule colonne
-    df_single = pd.DataFrame({'A': range(100)})
+    # Test avec une seule colonne numérique
+    df_single = pd.DataFrame({'value_100g': np.random.normal(0, 1, 100)})
     sample, _ = smart_sample(df_single)
     assert len(sample) > 0
     
     # Test avec uniquement des colonnes catégorielles
     df_cat = pd.DataFrame({
-        'A': ['x', 'y', 'z'] * 33,
-        'B': ['a', 'b'] * 50
+        'grade': ['A', 'B', 'C'] * 33 + ['A'],
+        'category': ['Food', 'Drink'] * 50
     })
     sample, _ = smart_sample(df_cat)
     assert len(sample) > 0
     
     # Test avec uniquement des colonnes numériques
     df_num = pd.DataFrame({
-        'A': np.random.normal(0, 1, 100),
-        'B': np.random.uniform(0, 1, 100)
+        'energy_100g': np.random.normal(0, 1, 100),
+        'protein_100g': np.random.uniform(0, 1, 100)
     })
     sample, _ = smart_sample(df_num)
     assert len(sample) > 0 
