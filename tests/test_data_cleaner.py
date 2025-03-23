@@ -52,8 +52,8 @@ def main():
     time_simple = end_time_simple - start_time_simple
 
     # Calculer le pourcentage de valeurs manquantes après le nettoyage (méthode simple)
-    missing_after_simple = (df_cleaned_simple.isna().sum().sum() / 
-                          (df_cleaned_simple.shape[0] * df_cleaned_simple.shape[1]))
+    missing_after_simple = (df_cleaned_simple.isna().sum().sum() /
+                            (df_cleaned_simple.shape[0] * df_cleaned_simple.shape[1]))
 
     # Test avec la méthode d'imputation KNN
     print("\nNettoyage du dataset avec la méthode d'imputation KNN...")
@@ -63,8 +63,8 @@ def main():
     time_knn = end_time_knn - start_time_knn
 
     # Calculer le pourcentage de valeurs manquantes après le nettoyage (méthode KNN)
-    missing_after_knn = (df_cleaned_knn.isna().sum().sum() / 
-                        (df_cleaned_knn.shape[0] * df_cleaned_knn.shape[1]))
+    missing_after_knn = (df_cleaned_knn.isna().sum().sum() /
+                         (df_cleaned_knn.shape[0] * df_cleaned_knn.shape[1]))
 
     # Afficher les résultats de comparaison
     print("\n=== Résultats de comparaison des méthodes d'imputation ===")

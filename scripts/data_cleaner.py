@@ -94,7 +94,7 @@ def _impute_simple(df: pd.DataFrame) -> pd.DataFrame:
         DataFrame avec valeurs imputées
     """
     df_clean = df.copy()
-    
+
     # Pour les colonnes numériques, utiliser la médiane
     numeric_cols = df_clean.select_dtypes(include=['number']).columns
     for col in numeric_cols:
@@ -112,13 +112,13 @@ def _impute_simple(df: pd.DataFrame) -> pd.DataFrame:
         if df_clean[col].isna().any():  # Vérifier s'il y a des valeurs manquantes
             if df_clean[col].notna().any():
                 # La valeur la plus fréquente, ou "Unknown" s'il n'y en a pas
-                most_common = (df_clean[col].mode().iloc[0] 
-                              if not df_clean[col].mode().empty else "Unknown")
+                most_common = (df_clean[col].mode().iloc[0]
+                               if not df_clean[col].mode().empty else "Unknown")
                 df_clean[col] = df_clean[col].fillna(most_common)
             else:
                 # S'il n'y a que des NA, remplacer par "Unknown"
                 df_clean[col] = df_clean[col].fillna("Unknown")
-                
+
     return df_clean
 
 
@@ -135,7 +135,7 @@ def _impute_knn(df: pd.DataFrame, n_neighbors: int) -> pd.DataFrame:
         DataFrame avec valeurs imputées
     """
     df_clean = df.copy()
-    
+
     # Imputation KNN pour colonnes numériques
     numeric_cols = df_clean.select_dtypes(include=['number']).columns
 
@@ -153,19 +153,19 @@ def _impute_knn(df: pd.DataFrame, n_neighbors: int) -> pd.DataFrame:
     for col in object_cols:
         if df_clean[col].isna().any():
             if df_clean[col].notna().any():
-                most_common = (df_clean[col].mode().iloc[0] 
-                              if not df_clean[col].mode().empty else "Unknown")
+                most_common = (df_clean[col].mode().iloc[0]
+                               if not df_clean[col].mode().empty else "Unknown")
                 df_clean[col] = df_clean[col].fillna(most_common)
             else:
                 df_clean[col] = df_clean[col].fillna("Unknown")
-                
+
     return df_clean
 
 
 def _impute_column_knn(
-        df: pd.DataFrame, 
-        target_col: str, 
-        n_neighbors: int, 
+        df: pd.DataFrame,
+        target_col: str,
+        n_neighbors: int,
         numeric_cols: List[str]
 ) -> None:
     """
@@ -180,42 +180,42 @@ def _impute_column_knn(
     """
     # Identifier les colonnes prédicteurs potentiels
     predictors = _get_predictors(df, target_col, numeric_cols)
-    
+
     if not predictors:  # Pas de prédicteurs disponibles
         _impute_column_simple(df, target_col)
         return
-    
+
     # Créer sous-dataframe avec colonne cible et prédicteurs
     cols_to_use = predictors + [target_col]
     sub_df = df[cols_to_use].copy()
-    
+
     try:
         # Standardiser et appliquer KNN
         sub_df_scaled, cols_with_variance = _standardize_dataframe(sub_df)
-        
+
         if not cols_with_variance:
             _impute_column_simple(df, target_col)
             return
-            
+
         # Configurer et appliquer l'imputation KNN
         k = min(n_neighbors, len(sub_df) - 1)
         if k > 0:
             imputed_values = _apply_knn(sub_df_scaled, k)
-            
+
             # Reconvertir à l'échelle d'origine
             imputed_df = pd.DataFrame(
-                imputed_values, 
-                index=sub_df.index, 
+                imputed_values,
+                index=sub_df.index,
                 columns=sub_df_scaled.columns
             )
-            
+
             # Déstandardiser uniquement la colonne cible
             if target_col in cols_with_variance:
                 scaler = StandardScaler()
                 scaler.fit(sub_df[target_col].fillna(0).values.reshape(-1, 1))
                 values = imputed_df[target_col].values.reshape(-1, 1)
                 imputed_df[target_col] = scaler.inverse_transform(values).flatten()
-                
+
             # Mettre à jour la colonne cible
             df[target_col] = imputed_df[target_col]
         else:
@@ -242,8 +242,8 @@ def _impute_column_simple(df: pd.DataFrame, col: str) -> None:
 
 
 def _get_predictors(
-        df: pd.DataFrame, 
-        target_col: str, 
+        df: pd.DataFrame,
+        target_col: str,
         numeric_cols: List[str]
 ) -> List[str]:
     """
@@ -262,10 +262,10 @@ def _get_predictors(
     for c in numeric_cols:
         if c != target_col and df[c].notna().any() and df[c].std() > 0:
             potential_predictors.append(c)
-            
+
     if not potential_predictors:
         return []
-        
+
     # Limiter le nombre de prédicteurs (maximum 10)
     if len(potential_predictors) > 10:
         return _select_best_predictors(df, target_col, potential_predictors)
@@ -274,8 +274,8 @@ def _get_predictors(
 
 
 def _select_best_predictors(
-        df: pd.DataFrame, 
-        target_col: str, 
+        df: pd.DataFrame,
+        target_col: str,
         potential_predictors: List[str]
 ) -> List[str]:
     """
@@ -290,7 +290,7 @@ def _select_best_predictors(
         Liste des 10 meilleurs prédicteurs
     """
     correlations = {}
-    
+
     # Vérifier si la colonne cible a de la variabilité
     if df[target_col].notna().any() and df[target_col].std() > 0:
         for pred in potential_predictors:
@@ -304,12 +304,12 @@ def _select_best_predictors(
             except ValueError:
                 # Ignorer cette paire en cas d'erreur
                 pass
-                
+
         # Trier par corrélation décroissante
         if correlations:
             sorted_predictors = sorted(correlations.items(), key=lambda x: x[1], reverse=True)
             return [p[0] for p in sorted_predictors[:10]]
-    
+
     # Si pas de corrélations ou colonne sans variabilité
     return potential_predictors[:10]
 
@@ -326,10 +326,10 @@ def _standardize_dataframe(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
     """
     scaler = StandardScaler()
     sub_df_filled = df.fillna(0)  # Remplir NA par 0 pour standardisation
-    
+
     # Identifier colonnes avec variabilité
     cols_with_variance = [c for c in sub_df_filled.columns if sub_df_filled[c].std() > 0]
-    
+
     # Standardiser uniquement colonnes avec variance
     sub_df_scaled = pd.DataFrame(index=df.index)
     for c in sub_df_filled.columns:
@@ -338,7 +338,7 @@ def _standardize_dataframe(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
             sub_df_scaled[c] = scaler.fit_transform(values).flatten()
         else:
             sub_df_scaled[c] = 0
-            
+
     return sub_df_scaled, cols_with_variance
 
 
