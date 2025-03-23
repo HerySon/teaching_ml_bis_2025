@@ -14,8 +14,16 @@ try:
     import numpy as np
     import pandas as pd
     from typing import Union, Dict, Tuple
-    from sklearn.impute import SimpleImputer
     from scipy import stats
+
+    # Imports sklearn regroupés
+    from sklearn import (
+        impute,
+        covariance,
+        ensemble,
+        neighbors
+    )
+    from sklearn.impute import SimpleImputer
     from sklearn.covariance import EllipticEnvelope
     from sklearn.ensemble import IsolationForest
     from sklearn.neighbors import LocalOutlierFactor
@@ -23,7 +31,10 @@ except ImportError as e:
     print(f"Erreur lors de l'importation des modules : {e}")
 
 
-def detect_outliers_tukey(data: Union[pd.Series, np.ndarray], threshold: float = 1.5) -> Tuple[np.ndarray, Dict]:
+def detect_outliers_tukey(
+        data: Union[pd.Series, np.ndarray],
+        threshold: float = 1.5
+) -> Tuple[np.ndarray, Dict]:
     """
     Détecte les valeurs aberrantes en utilisant la méthode de Tukey (IQR).
     
@@ -56,7 +67,10 @@ def detect_outliers_tukey(data: Union[pd.Series, np.ndarray], threshold: float =
     return outliers, stats_dict
 
 
-def detect_outliers_zscore(data: Union[pd.Series, np.ndarray], threshold: float = 3.0) -> Tuple[np.ndarray, Dict]:
+def detect_outliers_zscore(
+        data: Union[pd.Series, np.ndarray],
+        threshold: float = 3.0
+) -> Tuple[np.ndarray, Dict]:
     """
     Détecte les valeurs aberrantes en utilisant le z-score.
     
@@ -82,9 +96,12 @@ def detect_outliers_zscore(data: Union[pd.Series, np.ndarray], threshold: float 
     return outliers, stats_dict
 
 
-def detect_outliers_elliptic(data: Union[pd.Series, np.ndarray], contamination: float = 0.1) -> Tuple[np.ndarray, Dict]:
+def detect_outliers_elliptic(
+        data: Union[pd.Series, np.ndarray],
+        contamination: float = 0.1
+) -> Tuple[np.ndarray, Dict]:
     """
-    Détecte les valeurs aberrantes en utilisant l'enveloppe elliptique (EllipticEnvelope).
+    Détecte les valeurs aberrantes en utilisant l'enveloppe elliptique.
     
     Args:
         data: Données à analyser
@@ -95,7 +112,8 @@ def detect_outliers_elliptic(data: Union[pd.Series, np.ndarray], contamination: 
         - Un tableau booléen indiquant les positions des valeurs aberrantes
         - Un dictionnaire avec les statistiques calculées
     """
-    data = np.array(data).reshape(-1, 1)  # Reshape pour 2D array requis par EllipticEnvelope
+    # Reshape pour 2D array requis par EllipticEnvelope
+    data = np.array(data).reshape(-1, 1)
 
     # Ajustement de l'enveloppe elliptique
     envelope = EllipticEnvelope(contamination=contamination, random_state=42)
@@ -118,10 +136,12 @@ def detect_outliers_elliptic(data: Union[pd.Series, np.ndarray], contamination: 
     return outliers, stats_dict
 
 
-def detect_outliers_isolation_forest(data: Union[pd.Series, np.ndarray],
-                                     contamination: float = 0.1,
-                                     n_estimators: int = 100,
-                                     random_state: int = 42) -> Tuple[np.ndarray, Dict]:
+def detect_outliers_isolation_forest(
+        data: Union[pd.Series, np.ndarray],
+        contamination: float = 0.1,
+        n_estimators: int = 100,
+        random_state: int = 42
+) -> Tuple[np.ndarray, Dict]:
     """
     Détecte les valeurs aberrantes en utilisant Isolation Forest.
     
@@ -136,7 +156,8 @@ def detect_outliers_isolation_forest(data: Union[pd.Series, np.ndarray],
         - Un tableau booléen indiquant les positions des valeurs aberrantes
         - Un dictionnaire avec les statistiques calculées
     """
-    data = np.array(data).reshape(-1, 1)  # Reshape pour 2D array requis par IsolationForest
+    # Reshape pour 2D array requis par IsolationForest
+    data = np.array(data).reshape(-1, 1)
 
     # Ajustement de l'Isolation Forest
     iso_forest = IsolationForest(
@@ -163,10 +184,12 @@ def detect_outliers_isolation_forest(data: Union[pd.Series, np.ndarray],
     return outliers, stats_dict
 
 
-def detect_outliers_lof(data: Union[pd.Series, np.ndarray],
-                        n_neighbors: int = 20,
-                        contamination: float = 0.1,
-                        novelty: bool = False) -> Tuple[np.ndarray, Dict]:
+def detect_outliers_lof(
+        data: Union[pd.Series, np.ndarray],
+        n_neighbors: int = 20,
+        contamination: float = 0.1,
+        novelty: bool = False
+) -> Tuple[np.ndarray, Dict]:
     """
     Détecte les valeurs aberrantes en utilisant Local Outlier Factor (LOF).
     
@@ -181,7 +204,8 @@ def detect_outliers_lof(data: Union[pd.Series, np.ndarray],
         - Un tableau booléen indiquant les positions des valeurs aberrantes
         - Un dictionnaire avec les statistiques calculées
     """
-    data = np.array(data).reshape(-1, 1)  # Reshape pour 2D array requis par LOF
+    # Reshape pour 2D array requis par LOF
+    data = np.array(data).reshape(-1, 1)
 
     # Ajustement du LOF
     lof = LocalOutlierFactor(
@@ -207,11 +231,13 @@ def detect_outliers_lof(data: Union[pd.Series, np.ndarray],
     return outliers, stats_dict
 
 
-def handle_outliers(data: pd.DataFrame,
-                    column: str,
-                    strategy: str = 'remove',
-                    detection_method: str = 'tukey',
-                    **kwargs) -> pd.DataFrame:
+def handle_outliers(
+        data: pd.DataFrame,
+        column: str,
+        strategy: str = 'remove',
+        detection_method: str = 'tukey',
+        **kwargs
+) -> pd.DataFrame:
     """
     Gère les valeurs aberrantes selon la stratégie choisie.
     
@@ -219,7 +245,8 @@ def handle_outliers(data: pd.DataFrame,
         data: DataFrame contenant les données
         column: Nom de la colonne à traiter
         strategy: Stratégie de gestion ('remove', 'impute', 'cap')
-        detection_method: Méthode de détection ('tukey', 'zscore', 'elliptic', 'isolation_forest' ou 'lof')
+        detection_method: Méthode de détection ('tukey', 'zscore', 'elliptic', 
+            'isolation_forest' ou 'lof')
         **kwargs: Arguments supplémentaires pour les méthodes de détection
     
     Returns:
@@ -265,17 +292,20 @@ def handle_outliers(data: pd.DataFrame,
     return df
 
 
-def get_outlier_summary(data: pd.DataFrame,
-                        column: str,
-                        detection_method: str = 'tukey',
-                        **kwargs) -> Dict:
+def get_outlier_summary(
+        data: pd.DataFrame,
+        column: str,
+        detection_method: str = 'tukey',
+        **kwargs
+) -> Dict:
     """
     Génère un résumé des valeurs aberrantes détectées.
     
     Args:
         data: DataFrame contenant les données
         column: Nom de la colonne à analyser
-        detection_method: Méthode de détection ('tukey', 'zscore', 'elliptic', 'isolation_forest' ou 'lof')
+        detection_method: Méthode de détection ('tukey', 'zscore', 'elliptic', 
+            'isolation_forest' ou 'lof')
         **kwargs: Arguments supplémentaires pour les méthodes de détection
     
     Returns:
