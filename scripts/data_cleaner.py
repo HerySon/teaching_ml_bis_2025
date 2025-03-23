@@ -268,8 +268,8 @@ def _get_predictors(
     # Limiter le nombre de prédicteurs (maximum 10)
     if len(potential_predictors) > 10:
         return _select_best_predictors(df, target_col, potential_predictors)
-    else:
-        return potential_predictors
+
+    return potential_predictors
 
 
 def _select_best_predictors(

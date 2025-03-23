@@ -52,7 +52,8 @@ def calculate_missing_percentage(df: pd.DataFrame) -> float:
     return df.isna().sum().sum() / (df.shape[0] * df.shape[1])
 
 
-def compare_imputation_methods(df_sample: pd.DataFrame) -> Dict[str, Tuple[float, float, pd.DataFrame]]:
+def compare_imputation_methods(
+        df_sample: pd.DataFrame) -> Dict[str, Tuple[float, float, pd.DataFrame]]:
     """
     Compare les méthodes d'imputation simple et KNN.
     
