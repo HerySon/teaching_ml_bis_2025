@@ -194,7 +194,7 @@ class DataEncoder:
 # Example usage:
 if __name__ == "__main__":
     # Initialize the DataEncoder class with the dataset path and number of rows to sample
-    data_path = "../data/en.openfoodfacts.org.products.csv"
+    data_path = "data/en.openfoodfacts.org.products.csv"
     encoder = DataEncoder(data_path, nrows=100)
 
     # Load data
