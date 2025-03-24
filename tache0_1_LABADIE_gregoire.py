@@ -12,7 +12,7 @@ def sous_echantillonner(data, col_categorie, colonnes_a_garder=None, taille_echa
     - taille_echantillon : (int) Nombre de lignes par catégorie (None = plus petite catégorie)
 
     Retourne :
-    - Un DataFrame sous-échantillonné et équilibré
+    Un DataFrame sous-échantillonné et équilibré.
     """
     if colonnes_a_garder:
         data = data[[col_categorie] + colonnes_a_garder]
