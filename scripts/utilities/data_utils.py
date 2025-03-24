@@ -10,11 +10,8 @@ from datetime import datetime
 from functools import wraps
 from typing import Callable
 
-try:
-    import pandas as pd
-    import numpy as np
-except ImportError as e:
-    print(f"Error: {e}. Please make sure to install the required packages.")
+import pandas as pd
+import numpy as np
 
 def log_action(action: str) -> Callable:
     """
@@ -36,16 +33,34 @@ def log_action(action: str) -> Callable:
         return wrapper
     return decorator
 
-def load_data(file_path: str, limit: int = None) -> pd.DataFrame:
-    """
-    Load a CSV file into a DataFrame.
+def verify_column_exists(df, col_name):
+    """ Vérifie si la colonne existe et propose des alternatives si besoin. """
+    if col_name not in df.columns:
+        import difflib
+        matches = difflib.get_close_matches(col_name, df.columns, n=5, cutoff=0.4)
+        raise ValueError(f"⚠️ Colonne '{col_name}' introuvable. Suggestions proches : {matches}")
 
-    @param file_path: Path to the CSV file
-    @param limit: Maximum number of rows to load (optional)
-    @return: A DataFrame containing the loaded data
-    """
-    return pd.read_csv(file_path, sep=';', encoding='utf-8', on_bad_lines='skip',
-                       nrows=limit, low_memory=False)
+def load_data(file_path, limit=None):
+    """ Charge le fichier CSV avec les bonnes options et affiche les colonnes disponibles. """
+    try:
+        df = pd.read_csv(file_path, sep=",", encoding="utf-8", nrows=limit)
+
+        verify_column_exists(df, "France")
+
+        if df.shape[1] == 1:
+            print("⚠️ Alerte : Le CSV semble mal séparé. Tentative avec ';' comme séparateur.")
+            df = pd.read_csv(file_path, sep=";", encoding="utf-8", nrows=limit)
+
+        df.columns = df.columns.str.strip().str.lower()
+
+        print(f"📂 Fichier chargé : {file_path}")
+        print(f"📊 Dimensions du DataFrame: {df.shape}")
+        print(f"🔍 Colonnes disponibles : {df.columns.tolist()}")
+        return df
+    except Exception as e:
+        print(f"❌ Erreur lors du chargement du fichier : {e}")
+        return None
+
 
 def get_numeric_columns(df: pd.DataFrame) -> list:
     """
