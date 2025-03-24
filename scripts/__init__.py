@@ -6,6 +6,7 @@ from .encoder.data_encoder import FeatureEncoder
 from .scaler.data_scaling import FeatureScaler
 from .visualization.univariate_visualization import AdvancedVisualization
 from .cleanner.data_missing_values import AdvancedDataFrameProcessor
+from .processing.dimensionality_reduction_pca import DimensionalityReduction
 from .cleanner.data_outliers import OutlierDetection
 
 __all__ = [
@@ -14,7 +15,8 @@ __all__ = [
     'FeatureEncoder',
     'FeatureScaler',
     'AdvancedVisualization',
-    'OutlierDetection'
+    'OutlierDetection',
+    'DimensionalityReduction'
 ]
 
 __version__ = '1.0.0'
@@ -62,6 +64,31 @@ def main(description: str, parser: argparse.ArgumentParser) -> argparse.Namespac
 
 def get_all_columns(df) -> list:
     return df.columns.tolist()
+
+def pars_args_data_pca(args: list) -> None:
+    parser = argparse.ArgumentParser()
+    
+    parser.add_argument("--file_path", type=str, required=True, help="Path to the CSV file")
+    parser.add_argument("--target_col", type=str, required=True, help="Target column for PCA")
+    parser.add_argument("--method", type=str, required=True, help="Dimensionality reduction method")
+
+    args = parser.parse_args(args)
+
+    method = ""
+
+    if isinstance(args.method, list):
+        method = args.method[0]
+    else: method = args.method
+
+    processor = DimensionalityReduction(args.file_path, args.target_col if not args.target_col else "price", method=method)
+
+    processor.scale_data()
+    processor.optimize_n_components()
+    processor.apply_reduction()
+    processor.explained_variance()
+
+    selected_features = processor.select_features()
+    print(f"Most influential features per principal component ({method}): {selected_features}")
 
 def pars_args_data_outliers(args: list) -> None:
     parser = argparse.ArgumentParser()

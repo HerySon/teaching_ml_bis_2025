@@ -570,7 +570,6 @@ class AdvancedDataFrameProcessor(DataFrameProcessor):
         
         @param column: Column to extract patterns from
         @param pattern: Regular expression pattern to extract
-        
         @return: A Series containing the extracted patterns
         """
         extracted_series = self.df[column].str.extract(pattern, expand=False)

@@ -184,7 +184,7 @@ class AdvancedVisualization(Plotting):
         mean = data.mean()
         median = data.median()
         std_dev = data.std()
-        
+
         skewness = skew(data)
         kurt = kurtosis(data)
         normality_pval = normaltest(data).pvalue
@@ -218,8 +218,7 @@ class AdvancedVisualization(Plotting):
         @param col: The column name to analyze.
         @param plots: List of plots to generate. Options: ['countplot'].
         """
-        if plots is None:
-            plots = ['countplot']
+        if plots is None: plots = ['countplot']
 
         cleaned_col_name = self.clean_column_name(col)
         data = self.df[col].dropna()
@@ -228,8 +227,7 @@ class AdvancedVisualization(Plotting):
         print(f"Unique values: {data.nunique()}")
         print(f"Value counts:\n{data.value_counts()}")
 
-        for plot_type in plots:
-            self._countplot(data, col, cleaned_col_name)
+        for _ in plots: self._countplot(data, col, cleaned_col_name)
 
     def run_univariate_analysis(self, numerical_plots: list = None, categorical_plots: list = None) -> None:
         """
