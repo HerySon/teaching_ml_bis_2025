@@ -2,8 +2,19 @@ import pandas as pd
 
 class DataFrameFilter:
     """
-    A class to filter a DataFrame based on various criteria such as missing values,
-    unique values, and column selection.
+    This class helps to perform various data filtering tasks on a DataFrame, including:
+
+    1) Data loading
+    2) Understanding the data
+    3) Column-based filtering:
+        3.1) Filtering based on missing values
+        3.2) Filtering based on unique values
+        3.3) Filtering by selecting one or more specific columns
+        3.4) Filtering by selecting a specific data type (datatype)
+    4) Row-based filtering:
+        4.1) Filtering based on missing values
+        4.2) Filtering based on a specific column and value
+        4.3) Filtering based on the absence of essential values for data analysis
     """
 
     def __init__(self, file_path, nrows=100):
