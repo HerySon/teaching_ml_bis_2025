@@ -1,8 +1,8 @@
 """
 Module tache4_4
-Ce module propose une fonction pour tester différentes méthodes de 
-plongement non linéaire (Isomap, MDS, t-SNE, UMAP, etc.) afin de visualiser 
-les données en 2D. L'objectif est d'explorer la structure du jeu de données 
+Ce module propose une fonction pour tester différentes méthodes de
+plongement non linéaire (Isomap, MDS, t-SNE, UMAP, etc.) afin de visualiser
+les données en 2D. L'objectif est d'explorer la structure du jeu de données
 de manière plus intuitive qu'avec un simple PCA linéaire.
 """
 
@@ -26,7 +26,7 @@ def reduire_dimension(
     random_state: int = 42
 ) -> pd.DataFrame:
     """
-    Réduit la dimension d'un DataFrame pour une visualisation en 2D à l'aide 
+    Réduit la dimension d'un DataFrame pour une visualisation en 2D à l'aide
     d'une méthode de plongement non linéaire.
     
     Args:
@@ -36,16 +36,14 @@ def reduire_dimension(
         random_state (int): Graine aléatoire pour la reproductibilité.
     
     Returns:
-        pd.DataFrame: DataFrame contenant les coordonnées 2D résultantes, avec 
+        pd.DataFrame: DataFrame contenant les coordonnées 2D résultantes, avec
                       les mêmes index que df.
     """
     df_num = df.select_dtypes(include=['int', 'float'])
     if df_num.shape[1] == 0:
         raise ValueError("Aucune colonne numérique trouvée dans le DataFrame.")
-
     method = method.lower()
     logging.info("Réduction de dimension en 2D avec la méthode : %s", method)
-
     if method == "isomap":
         model = Isomap(n_components=n_components)
     elif method == "mds":
@@ -58,17 +56,13 @@ def reduire_dimension(
                 "Le package 'umap-learn' n'est pas installé. "
                 "Veuillez l'installer pour utiliser UMAP."
             )
-        model = umap.UMAP(n_components=n_components,
-                          random_state=random_state)
+        model = umap.UMAP(n_components=n_components, random_state=random_state)
     else:
-        raise ValueError("Méthode inconnue. Choisir parmi 'isomap', "
-                         "'mds', 'tsne', 'umap'.")
-
+        raise ValueError("Méthode inconnue. Choisir parmi 'isomap', 'mds', 'tsne', 'umap'.")
     embedding = model.fit_transform(df_num)
     colonnes = [f"comp_{i+1}" for i in range(n_components)]
     df_embedded = pd.DataFrame(embedding, columns=colonnes, index=df_num.index)
-    logging.info("Réduction terminée. Dimensions finales : %s", 
-                 df_embedded.shape)
+    logging.info("Réduction terminée. Dimensions finales : %s", df_embedded.shape)
     return df_embedded
 
 
@@ -88,4 +82,9 @@ def main() -> None:
     df_tsne = reduire_dimension(df_example, method="tsne", n_components=2)
     logging.info("Coordonnées t-SNE :\n%s", df_tsne)
     # Pour tester UMAP, décommente les lignes suivantes :
-    # df_umap = reduire_dimension(df_example, method_
+    # df_umap = reduire_dimension(df_example, method="umap", n_components=2)
+    # logging.info("Coordonnées UMAP :\n%s", df_umap)
+
+
+if __name__ == "__main__":
+    main()
