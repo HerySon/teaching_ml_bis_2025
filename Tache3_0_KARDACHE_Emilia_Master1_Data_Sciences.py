@@ -1,123 +1,159 @@
-import numpy as np
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from scipy.stats import zscore
+import numpy as np
 from sklearn.ensemble import IsolationForest
-from sklearn.impute import SimpleImputer
+from sklearn.svm import OneClassSVM
+from scipy.stats import zscore
 
+# Chargement du fichier CSV (assurez-vous que le chemin du fichier est correct)
+url = "https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz"
+df = pd.read_csv(url, nrows=1000, sep='\t', encoding="utf-8")
 
-"""
-Ce script détecte et traite les outliers dans un DataFrame en utilisant trois méthodes :
-- IQR (Interquartile Range)
-- Z-score
-- Isolation Forest
+# Prétraitement des données : supprimer les NaN, les doublons, et gérer les valeurs manquantes
 
-L'utilisateur peut choisir une stratégie pour gérer les outliers : "remove" (supprimer), "impute" (imputer avec la médiane), ou "keep" (conserver).
+def preprocess_data(df, threshold=0.9):
+    # Suppression des doublons
+    df = df.drop_duplicates()
 
-### Fonctions :
-1. **detect_outliers_iqr(df, cols, threshold=1.5)** : Détecte les outliers avec la méthode IQR.
-2. **detect_outliers_zscore(df, cols, threshold=3)** : Détecte les outliers avec le Z-score.
-3. **detect_outliers_isolation_forest(df, cols)** : Détecte les outliers avec Isolation Forest.
-4. **handle_outliers(df, outliers_df, strategy="remove")** : Applique une stratégie pour gérer les outliers.
+    # Suppression des colonnes où plus de 90% des valeurs sont manquantes
+    missing_percentage = df.isnull().mean()
+    cols_to_drop = missing_percentage[missing_percentage > threshold].index
+    df = df.drop(cols_to_drop, axis=1)
 
-### Utilisation :
-- Le script charge un jeu de données (Open Food Facts), sélectionne les colonnes numériques, et détecte les outliers.
-- L'utilisateur choisit la stratégie de traitement des outliers via un prompt.
-- Les distributions des données après traitement sont affichées sous forme de boxplots.
-"""
+    # Suppression des lignes avec des valeurs NaN restantes
+    df = df.dropna()
 
-def detect_outliers_iqr(df, cols, threshold=1.5):
-    """Détecte les outliers avec la méthode IQR pour les colonnes sélectionnées."""
-    df_outliers = df.copy()
-    for col in cols:
-        #après suppression des NaN
-        if df[col].dropna().empty:  
-            print(f"Colonne {col} vide ou trop de NaN, saut de la détection d'outliers.")
-            continue  
-        Q1, Q3 = np.percentile(df[col].dropna(), [25, 75]) 
-        IQR = Q3 - Q1
-        lower_bound = Q1 - threshold * IQR
-        upper_bound = Q3 + threshold * IQR
-        df_outliers[f'outlier_iqr_{col}'] = (df[col] < lower_bound) | (df[col] > upper_bound)
-    return df_outliers
+    return df
 
-def detect_outliers_zscore(df, cols, threshold=3):
-    """Détecte les outliers avec le Z-score pour les colonnes sélectionnées."""
-    df_outliers = df.copy()
-    for col in cols:
-        #après suppression des NaN
-        if df[col].dropna().empty: 
-            print(f"Colonne {col} vide ou trop de NaN, saut de la détection d'outliers.")
-            continue  
-        df_outliers[f'outlier_zscore_{col}'] = np.abs(zscore(df[col].dropna())) > threshold
-    return df_outliers
+# Appliquer le prétraitement
+df = preprocess_data(df)
 
-def detect_outliers_isolation_forest(df, cols):
-    """Détecte les outliers avec Isolation Forest pour les colonnes sélectionnées."""
-    df_outliers = df.copy()
-    for col in cols:
-        #Après suppression des NaN
-        if df[col].dropna().empty:  
-            print(f"Colonne {col} vide ou trop de NaN, saut de la détection d'outliers.")
-            continue  
-        model = IsolationForest(contamination=0.01, random_state=42)
-        df_outliers[f'outlier_isolation_forest_{col}'] = model.fit_predict(df[[col]].dropna()) == -1
-    return df_outliers
-
-def handle_outliers(df, outliers_df, strategy="remove"):
-    """Applique une stratégie pour gérer les outliers détectés."""
-    df_copy = df.copy()
-    for col in df.columns:
-        # Filtrer les lignes avec des outliers détectés
-        outliers = outliers_df[f'outlier_iqr_{col}'] | outliers_df[f'outlier_zscore_{col}'] | outliers_df[f'outlier_isolation_forest_{col}']
-        
-        if strategy == "remove":
-            # Supprimer les lignes contenant des outliers
-            df_copy = df_copy[~outliers]
-        
-        elif strategy == "impute":
-            # Imputer les valeurs des outliers par la médiane (par exemple)
-            imputer = SimpleImputer(strategy="median")
-            df_copy[col] = imputer.fit_transform(df_copy[[col]])
-        
-        elif strategy == "keep":
-            # Conserver les outliers (aucune action)
-            pass
-    
-    return df_copy
-
-# Exemple d'utilisation
-path = "https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz"
-
-# Charger le dataset
-df = pd.read_csv(path, nrows=100, sep='\t', encoding="utf-8", low_memory=False, na_filter=True) 
-
-# Sélectionner uniquement les colonnes numériques
+# Sélectionner les colonnes numériques pour l'analyse des outliers
 numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
-df_selected = df[numeric_columns].dropna()  # Appliquer dropna ici et ne pas modifier le DataFrame original en place
 
-# Appliquer les méthodes de détection d'outliers
-df_outliers_iqr = detect_outliers_iqr(df_selected, numeric_columns)
-df_outliers_zscore = detect_outliers_zscore(df_selected, numeric_columns)
-df_outliers_isolation_forest = detect_outliers_isolation_forest(df_selected, numeric_columns)
+# Fonction 1 : Détection des outliers avec le critère de Tukey
+def tukey_outliers(df, columns):
+    outliers = {}
+    for col in columns:
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        outliers[col] = df[(df[col] < lower_bound) | (df[col] > upper_bound)].index.tolist()
+    return outliers
 
-# Fusionner les résultats des différentes méthodes d'outliers
-df_combined = pd.concat([df_outliers_iqr, df_outliers_zscore.dropna(axis=1, how='all'), df_outliers_isolation_forest.dropna(axis=1, how='all')], axis=1)
+# Fonction 2 : Détection des outliers avec le Z-score
+def zscore_outliers(df, columns, threshold=3):
+    outliers = {}
+    for col in columns:
+        # Enlever les NaN avant de calculer les Z-scores
+        df_cleaned = df[col].dropna()
+        z_scores = zscore(df_cleaned) 
+        outliers[col] = np.where(np.abs(z_scores) > threshold)[0].tolist()
+    return outliers
 
-# Afficher un aperçu des valeurs identifiées comme outliers
-outlier_columns = [col for col in df_combined.columns if 'outlier_' in col]
-print(df_combined[outlier_columns].head())
+# Fonction 3 : Détection des outliers avec Isolation Forest
+def isolation_forest_outliers(df, columns):
+    outliers = {}
+    model = IsolationForest(contamination=0.05)  # Assume 5% des données sont des outliers
+    for col in columns:
+        # Enlever les NaN avant de faire la détection avec Isolation Forest
+        df_cleaned = df[[col]].dropna()
 
-# Choisir une stratégie de traitement des outliers
-strategy = input("Choisissez une stratégie pour traiter les outliers ('remove', 'impute', 'keep'): ")
+        # Vérifier si la colonne contient des données après suppression des NaN
+        if df_cleaned.empty:
+            print(f"Aucune donnée dans la colonne '{col}' après suppression des NaN.")
+            continue
 
-# Appliquer la stratégie choisie
-df_handled = handle_outliers(df_selected, df_combined, strategy=strategy)
+        # Appliquer le modèle Isolation Forest
+        outliers[col] = df_cleaned[model.fit_predict(df_cleaned) == -1].index.tolist()
+    return outliers
 
-# Affichage des distributions après traitement des outliers
-for col in df_selected.columns:
-    plt.figure(figsize=(10, 6))
-    sns.boxplot(x=df_handled[col])
-    plt.title(f"Distribution de {col} après traitement des outliers ({strategy})")
-    plt.show() 
+
+
+# Fonction 4 : Détection des outliers avec One-Class SVM (scikit-learn)
+def one_class_svm_outliers(df, columns):
+    outliers = {}
+    model = OneClassSVM(nu=0.05)  # Assume 5% des données sont des outliers
+    for col in columns:
+        # Enlever les NaN avant de faire la détection avec One-Class SVM
+        df_cleaned = df[[col]].dropna()
+        
+        # Vérifier si la colonne est vide après suppression des NaN
+        if df_cleaned.shape[0] == 0:
+            print(f"Aucune donnée disponible pour {col} après suppression des NaN.")
+            continue
+        
+        outliers[col] = df_cleaned[model.fit_predict(df_cleaned) == -1].index.tolist()
+    return outliers
+
+one_class_svm_outliers_result = one_class_svm_outliers(df, numeric_columns)
+
+# Fonction pour gérer les outliers en fonction de la stratégie choisie
+def handle_outliers(df, outlier_indices, strategy="remove"):
+    """
+    Stratégie pour traiter les outliers :
+    - "keep" : Conserver les outliers
+    - "impute" : Remplacer les outliers par la médiane
+    - "remove" : Supprimer les outliers
+    """
+    if strategy == "remove":
+        return df.drop(index=outlier_indices)
+    
+    elif strategy == "impute":
+        # Remplacer les outliers par la médiane de chaque colonne
+        for col in df.columns:
+            median_value = df[col].median()
+            df.loc[outlier_indices, col] = median_value
+        return df
+    
+    elif strategy == "keep":
+        # Ne rien changer, conserver les outliers
+        return df
+    
+    else:
+        print("Stratégie inconnue. La stratégie 'remove' sera utilisée par défaut.")
+        return df.drop(index=outlier_indices)
+
+# Détection des outliers avec les différentes méthodes
+tukey_outliers_result = tukey_outliers(df, numeric_columns)
+zscore_outliers_result = zscore_outliers(df, numeric_columns)
+isolation_forest_outliers_result = isolation_forest_outliers(df, numeric_columns)
+one_class_svm_outliers_result = one_class_svm_outliers(df, numeric_columns)
+
+# Affichage des résultats de la détection
+print("\nOutliers détectés avec le critère de Tukey :")
+print(tukey_outliers_result)
+
+print("\nOutliers détectés avec le Z-score :")
+print(zscore_outliers_result)
+
+print("\nOutliers détectés avec Isolation Forest :")
+print(isolation_forest_outliers_result)
+
+print("\nOutliers détectés avec One-Class SVM :")
+print(one_class_svm_outliers_result)
+
+# Demander à l'utilisateur quelle stratégie appliquer pour gérer les outliers
+print("\nChoisissez une stratégie pour gérer les outliers :")
+print("keep : Conserver les outliers")
+print("impute : Remplacer les outliers par la médiane")
+print("remove : Supprimer les outliers")
+
+# Option utilisateur
+choice = input("Entrez votre choix (keep, impute, ou remove) : ").lower()
+
+# Appliquer la stratégie choisie à la détection des outliers
+all_outliers = set(sum(tukey_outliers_result.values(), [])) | \
+               set(sum(zscore_outliers_result.values(), [])) | \
+               set(sum(isolation_forest_outliers_result.values(), [])) | \
+               set(sum(one_class_svm_outliers_result.values(), []))
+
+# Appliquer la stratégie choisie sur les données
+df_processed = handle_outliers(df, all_outliers, strategy=choice)
+
+# Affichage des résultats après gestion des outliers
+print("\nDonnées après traitement des outliers :") 
+print(df_processed.head())  
+
+
