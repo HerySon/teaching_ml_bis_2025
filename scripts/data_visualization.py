@@ -117,7 +117,7 @@ class DataVisualization(object):
         X = self.df.select_dtypes(include=['number']).drop(columns=[feature])
         y = self.df[feature]
 
-        # Supprimer les lignes contenant des NaN
+       
         valid_indices = ~X.isna().any(axis=1) & ~y.isna()
         X = X.loc[valid_indices]
         y = y.loc[valid_indices]
