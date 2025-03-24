@@ -193,7 +193,7 @@ class DataEncoder(object):
         return encoded_df
 
 
-# Example usage
+
 data_encoding_instance = DataEncoder("C:/Users/valen/Desktop/Machine Learning/teaching_ml_bis_2025/data/en.openfoodfacts.org.products.csv")
 
 data_encoding_instance.one_hot_encode("product_name")
