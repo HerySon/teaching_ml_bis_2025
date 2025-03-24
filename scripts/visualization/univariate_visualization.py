@@ -170,9 +170,9 @@ class AdvancedVisualization(Plotting):
         @param plots: List of plots to generate. Options: ['histogram', 'boxplot', 'outliers'].
         """
         methods_of_the_function = {
-            "histogram": self._histogram_ploting,
-            "boxplot": self._boxplot_ploting,
-            "outliers": self._outliers
+            "histogram": lambda: self._histogram_ploting,
+            "boxplot": lambda: self._boxplot_ploting,
+            "outliers": lambda: self._outliers
         }
 
         if plots is None:

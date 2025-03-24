@@ -211,15 +211,15 @@ class FeatureEncoder(DataEncoder):
         @param kwargs: Additional keyword arguments for the encoding method
         """
         methods_of_the_function = {
-            "one-hot": self._one_hot_encode,
-            "count": self._count_encode,
-            "hash": self._hash_encode,
-            "target": self._target_encode,
-            "mean": self._mean_encode,
-            "frequency": self._frequency_encode,
-            "leave-one-out": self._leave_one_out_encode,
-            "woe": self._weight_of_evidence_encode,
-            "clustering": self._merge_categories_clustering
+            "one-hot": lambda: self._one_hot_encode,
+            "count": lambda: self._count_encode,
+            "hash": lambda: self._hash_encode,
+            "target": lambda: self._target_encode,
+            "mean": lambda: self._mean_encode,
+            "frequency": lambda: self._frequency_encode,
+            "leave-one-out": lambda: self._leave_one_out_encode,
+            "woe": lambda: self._weight_of_evidence_encode,
+            "clustering": lambda: self._merge_categories_clustering
         }
 
         if method not in methods_of_the_function:

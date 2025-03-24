@@ -105,9 +105,9 @@ class DataOutlier(object):
         @param value: Value to use for 'value' method
         """
         methods_of_the_function = {
-            "mean": self._impute_mean_outliers,
-            "median": self._impute_median_outliers,
-            "value": self._impute_value_outliers
+            "mean": lambda: self._impute_mean_outliers,
+            "median": lambda: self._impute_median_outliers,
+            "value": lambda: self._impute_value_outliers
         }
 
         try :
@@ -149,6 +149,7 @@ class OutlierDetection(DataOutlier):
         @return: DataFrame with a new column 'outlier_iforest'
         """
         model = IsolationForest(contamination=0.05, random_state=42)
+
         self.df[f'outlier_iforest_{col}'] = model.fit_predict(self.df[[col]])
         self.df[f'outlier_iforest_{col}'] = (self.df[f'outlier_iforest_{col}'] == -1).astype(int)
 
