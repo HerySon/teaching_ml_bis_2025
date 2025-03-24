@@ -184,6 +184,7 @@ class AdvancedVisualization(Plotting):
         mean = data.mean()
         median = data.median()
         std_dev = data.std()
+        
         skewness = skew(data)
         kurt = kurtosis(data)
         normality_pval = normaltest(data).pvalue

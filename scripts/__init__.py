@@ -6,6 +6,7 @@ from .encoder.data_encoder import FeatureEncoder
 from .scaler.data_scaling import FeatureScaler
 from .visualization.univariate_visualization import AdvancedVisualization
 from .cleanner.data_missing_values import AdvancedDataFrameProcessor
+from .cleanner.data_outliers import OutlierDetection
 
 __all__ = [
     'DataFrameProcessor',
@@ -13,6 +14,7 @@ __all__ = [
     'FeatureEncoder',
     'FeatureScaler',
     'AdvancedVisualization',
+    'OutlierDetection'
 ]
 
 __version__ = '1.0.0'
@@ -54,11 +56,26 @@ def main(description: str, parser: argparse.ArgumentParser) -> argparse.Namespac
     parser.add_argument("--method", type=str, nargs='+', default=["col1", "col2"], help="Colonnes à encoder")
     parser.add_argument("--target_col", type=str, help="Colonne cible pour certains encodages")
     parser.add_argument("--option", type=int, default="0", help="Méthode d'imputation")
+    parser.add_argument("--value", type=int, default="0", help="Valeur pour l'imputation")
 
     return parser.parse_args()
 
 def get_all_columns(df) -> list:
     return df.columns.tolist()
+
+def pars_args_data_outliers(args: list) -> None:
+    parser = argparse.ArgumentParser()
+    args = main("Data Outliers Script", parser)
+
+    processor = OutlierDetection(args.file_path)
+
+    if not args.value:
+        processor.run_outlier_analysis() if not args.method else processor.run_outlier_analysis(strategy=args.method[0])
+
+    if args.method and args.value:
+        processor.handle_outliers(col=args.method[0], strategy=args.method[1], value=args.value)
+
+    print(f"✅ Cleaned data saved to {args.output_path}")
 
 def pars_args_data_visualization(args: list) -> None:
     parser = argparse.ArgumentParser()
@@ -69,7 +86,6 @@ def pars_args_data_visualization(args: list) -> None:
     processor.run_univariate_analysis()
 
     print(f"✅ Cleaned data saved to {args.output_path}")
-
 
 def pars_args_data_scaling(args: list) -> None:
     parser = argparse.ArgumentParser()
