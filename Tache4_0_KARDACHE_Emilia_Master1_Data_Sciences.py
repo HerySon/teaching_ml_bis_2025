@@ -7,7 +7,7 @@ path = "https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.
 df = pd.read_csv(path, nrows=100, sep='\t', encoding="utf-8", low_memory=False, na_filter=True)
 
 # Supprimer les doublons
-df = df.drop_duplicates()
+df = df.drop_duplicates() 
 
 # Sélectionner les colonnes numériques pour les visualisations univariées
 numeric_columns = df.select_dtypes(include=['number']).columns
