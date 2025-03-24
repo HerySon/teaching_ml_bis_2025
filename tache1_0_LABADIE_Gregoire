@@ -14,7 +14,7 @@ def nettoyagedesdonneep1(data, to_delete=[
     Nettoie le dataset en supprimant les colonnes inutiles et celles ayant trop de valeurs manquantes.
 
     Paramètres :
-    - data (pd.DataFrame) : Le DataFrame à nettoyer.
+    - data (pd.DataFrame) : Le dataFrame à nettoyer.
     - to_delete (list) : Liste des colonnes à supprimer manuellement.
     - threshold (int) : Pourcentage maximal de valeurs manquantes autorisé par colonne.
 
