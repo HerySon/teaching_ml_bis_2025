@@ -1,82 +1,94 @@
-from sklearn.impute import KNNImputer
 import pandas as pd
+import numpy as np
 
-#NON CATEGORIELLE IMPUTATION la modalité la plus fréquente.
-
-def clean_dataset(path: str, columns_to_drop=None, missing_threshold=90, n_neighbors=5) -> pd.DataFrame:
+def clean_dataset_local(path: str) -> pd.DataFrame:
     """
-    Fonction pour nettoyer un dataset en plusieurs étapes :
-    - Suppression des colonnes non pertinentes
-    - Calcul du pourcentage de valeurs manquantes
-    - Suppression des colonnes avec trop de valeurs manquantes
-    - Imputation des valeurs manquantes en utilisant KNN (et Médiane commentée ici)
+    Fonction de nettoyage du dataset :
+    - Charge les données
+    - Supprime les colonnes spécifiques
+    - Supprime les colonnes vides
+    - Supprime les doublons
+    - Remplace les valeurs infinies et les NaN
+
+    Paramètre :
+    - path : str
+        Le chemin vers le dataset CSV.
+
+    Retourne :
+    - pd.DataFrame : dataset nettoyé.
+    """
+    # Liste des colonnes à supprimer
+    cols_to_remove = [
+        "code", "url", "creator", "created_t", "created_datetime",
+        "last_modified_t", "last_modified_datetime", "packaging", "packaging_tags",
+        "brands_tags", "categories_tags", "categories_fr",
+        "origins_tags", "manufacturing_places", "manufacturing_places_tags",
+        "labels_tags", "labels_fr", "emb_codes", "emb_codes_tags",
+        "first_packaging_code_geo", "cities", "cities_tags", "purchase_places",
+        "countries_tags", "countries_fr", "image_ingredients_url",
+        "image_ingredients_small_url", "image_nutrition_url", "image_nutrition_small_url",
+        "image_small_url", "image_url", "last_updated_t", "last_updated_datetime", "last_modified_by"
+    ]
+    
+    # Charger le fichier
+    df = pd.read_csv(path, sep='\t', encoding="utf-8", compression="gzip", low_memory=False, na_filter=True, nrows=10000)
+
+    # Supprimer les colonnes spécifiées
+    df.drop(columns=[col for col in cols_to_remove if col in df.columns], inplace=True)
+
+    # Suppression des colonnes vides
+    df.dropna(axis=1, how='all', inplace=True)
+
+    # Suppression des doublons
+    df.drop_duplicates(inplace=True)
+
+    # Conversion explicite des colonnes en numériques (si possible)
+    df = df.apply(pd.to_numeric, errors='coerce')
+
+    # Remplacement des valeurs infinies
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+    # Suppression des lignes où toutes les valeurs sont NaN
+    df.dropna(how='all', inplace=True)
+
+    return df
+
+def highly_correlated(path: str, threshold=0.9) -> list:
+    """
+    Fonction pour identifier les colonnes fortement corrélées après nettoyage.
 
     Paramètres :
     - path : str
-        Chemin du fichier CSV.
-    - columns_to_drop : list (optionnel)
-        Liste des colonnes à supprimer. Si None, une liste par défaut est utilisée.
-    - missing_threshold : int
-        Seuil en pourcentage de valeurs manquantes au-dessus duquel une colonne est supprimée (par défaut 90%).
-    - n_neighbors : int
-        Nombre de voisins à utiliser pour l'imputation KNN.
+        Le chemin vers le dataset CSV.
+    - threshold : float
+        Seuil de corrélation au-delà duquel les colonnes sont considérées comme fortement corrélées.
 
     Retourne :
-    - DataFrame nettoyé
+    - Liste des colonnes fortement corrélées.
     """
-    # Chargement du dataset
-    df = pd.read_csv(path, nrows=10000, sep='\t', encoding="utf-8", low_memory=False, na_filter=True)
-
-    # Affichage des informations initiales sur le dataset
-    print("Informations sur le dataset initial :")
-    df.info()
-    print("\nStatistiques descriptives :")
-    print(df.describe())
-
-    # Suppression des colonnes non pertinentes (passées en paramètre)
-    if columns_to_drop is None:
-        columns_to_drop = [
-            "code", "url", "creator", "created_t", "created_datetime",
-            "last_modified_t", "last_modified_datetime", "packaging", "packaging_tags",
-            "brands_tags", "categories_tags", "categories_fr",
-            "origins_tags", "manufacturing_places", "manufacturing_places_tags",
-            "labels_tags", "labels_fr", "emb_codes", "emb_codes_tags",
-            "first_packaging_code_geo", "cities", "cities_tags", "purchase_places",
-            "countries_tags", "countries_fr", "image_ingredients_url",
-            "image_ingredients_small_url", "image_nutrition_url", "image_nutrition_small_url",
-            "image_small_url", "image_url", "last_updated_t", "last_updated_datetime", "last_modified_by"
-        ]
-    df.drop(columns=columns_to_drop, errors='ignore', inplace=True)
-
-    # Calcul du pourcentage de valeurs manquantes par colonne
-    missing_percentage = df.isnull().mean() * 100
-
-    # Suppression des colonnes avec trop de valeurs manquantes
-    df.drop(columns=missing_percentage[missing_percentage > missing_threshold].index, inplace=True)
-
-    # Affichage du DataFrame après suppression des colonnes avec trop de valeurs manquantes
-    print(f"\nDataFrame après suppression des colonnes avec plus de {missing_threshold}% de valeurs manquantes :")
-    print(df.head())
+    # Nettoyage du dataset
+    df_cleaned = clean_dataset_local(path)
 
     # Sélectionner uniquement les colonnes numériques
-    df_numeric = df.select_dtypes(include=['float64', 'int64'])
+    numeric_columns = df_cleaned.select_dtypes(include=['number'])
+    
+    if numeric_columns.empty:
+        print("Aucune colonne numérique disponible pour la corrélation.")
+        return []
 
-    # Application de l'imputation KNN sur les colonnes numériques
-    knn_imputer = KNNImputer(n_neighbors=n_neighbors)
-    df_knn_imputed = knn_imputer.fit_transform(df_numeric)
-    df_knn_imputed = pd.DataFrame(df_knn_imputed, columns=df_numeric.columns)
+    # Calcul de la matrice de corrélation absolue
+    corr_matrix = numeric_columns.corr().abs()
 
-    # Optionnel : imputation par médiane (commentée ici)
-    # df_median_imputed = df_numeric.copy()
-    # df_median_imputed.fillna(df_median_imputed.median(), inplace=True)
+    # Récupérer uniquement le triangle supérieur pour éviter les doublons
+    upper_triangle = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
 
-    # Affichage du DataFrame après l'imputation KNN
-    print("\nDataFrame après l'imputation KNN des valeurs manquantes :")
-    print(df_knn_imputed.head())
+    # Extraire les colonnes avec une corrélation > threshold
+    highly_correlated = [column for column in upper_triangle.columns if any(upper_triangle[column] > threshold)]
 
-    return df_knn_imputed
+    return highly_correlated
 
 # Exemple d'utilisation
 path = "https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz"
-df_knn_cleaned = clean_dataset(path)
+correlated_columns = highly_correlated(path, threshold=0.9)
+print(f"Colonnes fortement corrélées : {correlated_columns}")
 
