@@ -1,9 +1,65 @@
-**/__pycache__/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environnements virtuels
 .env
 .venv
-.ipynb_checkpoints
+env/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
 .DS_Store
-en.openfoodfacts.org.products.csv
-.idea
-.vscode
-.coverage
+Thumbs.db
+
+# Données volumineuses
+data/*.csv
+data/*.parquet
+models/*.pkl
+
+# Documentation
+documentation/
+*.md
+!README.md
+
+# Personal IDE configurations
+.vscode/
+.idea/
+
+# Build artifacts
+clustering_OFF.egg-info/
+__pycache__/
+.pytest_cache/
+
+# Personal config files
+.pylintrc
+pytest.ini
+setup.cfg
