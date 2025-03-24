@@ -14,7 +14,6 @@ def Classement_colonnes(data, ordinal_feature=['nutriscore_grade'], threshold=99
     - Un dictionnaire des colonnes classées par type.
     - Un DataFrame optimisé avec downcasting des variables numériques.
     """
-
     colonnes_numeriques = []
     colonnes_categorielles_ordinales = []
     colonnes_categorielles_non_ordinales = []
