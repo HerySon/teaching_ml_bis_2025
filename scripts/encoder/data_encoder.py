@@ -241,21 +241,3 @@ class FeatureEncoder(DataEncoder):
 
             self.df[col] = self.df[col].map(dict(zip(self.df[col].unique(), [f"Cluster_{label}" for label in labels])))
             print(f"Merged categories in column '{col}' using K-means clustering into {n_clusters} clusters.")
-
-            self.plot_clusters(encoded, labels, col)
-
-    def plot_clusters(self, encoded, labels, col) -> None:
-        """
-        Helper function to plot K-means clusters.
-        
-        @param encoded: The encoded features
-        @param labels: The cluster labels
-        @param col: The column name
-        """
-        plt.figure(figsize=(10, 6))
-        plt.scatter(encoded[:, 0], encoded[:, 1], c=labels, cmap='viridis')
-        plt.title(f"Clustering Results for {col}")
-        plt.xlabel('Component 1')
-        plt.ylabel('Component 2')
-        plt.colorbar()
-        plt.show()
