@@ -208,12 +208,20 @@ class DataClean(object):
         """
         return self.df
 
-
+""""
+méthode:"
+    - moyenne
+    - median
+    - delete
+    - simple"
+    -knn
+    -iterative"
+"""""
 data_clean_instance = DataClean("C:/Users/valen/Desktop/Machine Learning/teaching_ml_bis_2025/data/en.openfoodfacts.org.products.csv")
-data_clean_instance.clean_data_replace_value(methode='simple')
+data_clean_instance.clean_data_replace_value(methode='moyenne')
 #data_clean_instance.clean_data_delete_replica()
 #data_clean_instance.remove_irrelevant_columns(['column_to_remove1', 'column_to_remove2'])
 #data_clean_instance.remove_high_missing_columns(threshold=0.6)
 #data_clean_instance.extract_patterns('serving_size', r'\d+')
 #data_clean_instance.correct_errors('product_name', {'erreur1': 'correction1', 'erreur2': 'correction2'})
-#cleaned_df = data_clean_instance.get_cleaned_data()
+#cleaned_df = data_clean_instance.get_cleaned_data()v
