@@ -4,6 +4,7 @@ from .utilities.data_processing import ApplyFunctionThread
 
 from .encoder.data_encoder import FeatureEncoder
 from .scaler.data_scaling import FeatureScaler
+from .visualization.univariate_visualization import AdvancedVisualization
 from .cleanner.data_missing_values import AdvancedDataFrameProcessor
 
 __all__ = [
@@ -11,6 +12,7 @@ __all__ = [
     'ApplyFunctionThread',
     'FeatureEncoder',
     'FeatureScaler',
+    'AdvancedVisualization',
 ]
 
 __version__ = '1.0.0'
@@ -50,13 +52,23 @@ def main(description: str, parser: argparse.ArgumentParser) -> argparse.Namespac
     parser.add_argument("--pattern", type=str, default="(\\d+)", help="Motif regex à extraire")
     parser.add_argument("--irrelevant_cols", type=str, nargs='+', default=["id", "unwanted_col"], help="Colonnes non pertinentes")
     parser.add_argument("--method", type=str, nargs='+', default=["col1", "col2"], help="Colonnes à encoder")
-    parser.add_argument("--target_col", type=str, required=True, help="Colonne cible pour certains encodages")
+    parser.add_argument("--target_col", type=str, help="Colonne cible pour certains encodages")
     parser.add_argument("--option", type=int, default="0", help="Méthode d'imputation")
 
     return parser.parse_args()
 
 def get_all_columns(df) -> list:
     return df.columns.tolist()
+
+def pars_args_data_visualization(args: list) -> None:
+    parser = argparse.ArgumentParser()
+    args = main("Data Univariate Visualization Script", parser)
+
+    processor = AdvancedVisualization(args.file_path)
+
+    processor.run_univariate_analysis()
+
+    print(f"✅ Cleaned data saved to {args.output_path}")
 
 
 def pars_args_data_scaling(args: list) -> None:

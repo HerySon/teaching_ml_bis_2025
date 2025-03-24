@@ -244,7 +244,6 @@ class DataFrameProcessor(object):
         """
         Removes columns with a percentage of missing values exceeding the threshold.
 
-        
         @param max_missing: Maximum threshold for missing values.
         """
         missing_ratio = self.df.isna().mean()
