@@ -8,6 +8,10 @@ Classes
 @author: Feurking
 """
 
+# [Tache3.0][4.5pts] Gérer les valeurs abbérantes
+
+# python -m scripts --file_path "C:/Users/Quentin/Desktop/machine learninig/teaching_ml_bis_2025/data/en.openfoodfacts.org.products.csv" --output_path "C:/Users/Quentin/Desktop/Fuck YourSlef PEP8/teaching_ml_bis_2025/results/test.csv" --method remove
+
 import os
 
 import pandas as pd
