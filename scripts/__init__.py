@@ -1,13 +1,16 @@
 import argparse
 
 from .utilities.data_processing import ApplyFunctionThread
-from .encoder.data_encoder import FeatureEncoder
 
+from .encoder.data_encoder import FeatureEncoder
+from .scaler.data_scaling import FeatureScaler
 from .cleanner.data_missing_values import AdvancedDataFrameProcessor
 
 __all__ = [
     'DataFrameProcessor',
-    'ApplyFunctionThread'
+    'ApplyFunctionThread',
+    'FeatureEncoder',
+    'FeatureScaler',
 ]
 
 __version__ = '1.0.0'
@@ -48,11 +51,26 @@ def main(description: str, parser: argparse.ArgumentParser) -> argparse.Namespac
     parser.add_argument("--irrelevant_cols", type=str, nargs='+', default=["id", "unwanted_col"], help="Colonnes non pertinentes")
     parser.add_argument("--method", type=str, nargs='+', default=["col1", "col2"], help="Colonnes à encoder")
     parser.add_argument("--target_col", type=str, required=True, help="Colonne cible pour certains encodages")
+    parser.add_argument("--option", type=int, default="0", help="Méthode d'imputation")
 
     return parser.parse_args()
 
 def get_all_columns(df) -> list:
     return df.columns.tolist()
+
+
+def pars_args_data_scaling(args: list) -> None:
+    parser = argparse.ArgumentParser()
+    args = main("Data Scaling Script", parser)
+
+    scaler = FeatureScaler.from_csv(args.file_path, limit=1000)
+
+    scaled_df = scaler.scale_based_on_distribution(args.option) if args.option else scaler.scale_based_on_distribution()
+
+    scaled_df.to_csv(args.output_path, index=False, encoding='utf-8')
+
+    print(f"✅ Scaled data saved to {args.output_path}")
+
 
 def pars_args_data_encoder(args: list) -> None:
     parser = argparse.ArgumentParser()
