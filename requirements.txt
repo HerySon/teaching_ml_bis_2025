@@ -3,9 +3,12 @@ pip>=9
 setuptools>=26
 wheel>=0.29
 
+<<<<<<< HEAD
 # code quality
 pylint
 
+=======
+>>>>>>> 75593b9 (Initial commit)
 # data science
 numpy
 pandas 
